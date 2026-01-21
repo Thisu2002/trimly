@@ -1,0 +1,17 @@
+{
+  "name": "salonflow",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:mobile": "cd apps/mobile && npx expo start",
+    "install:all": "npm install && cd apps/web && npm install && cd ../mobile && npm install"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
