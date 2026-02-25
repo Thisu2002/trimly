@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16
+    container_name: trimly_postgres
+    environment:
+      POSTGRES_USER: trimly
+      POSTGRES_PASSWORD: trimly
+      POSTGRES_DB: trimly
+    ports:
+      - "5432:5432"
+    volumes:
+      - trimly_pg:/var/lib/postgresql/data
+
+volumes:
+  trimly_pg:
