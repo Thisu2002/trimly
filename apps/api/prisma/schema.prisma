@@ -15,9 +15,52 @@ enum Role {
 model User {
   id       String @id @default(uuid())
   auth0Sub String @unique
+  name     String?
   email    String @unique
   role     Role
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  adminSalon Salon?   @relation("SalonAdmin")
+}
+
+model Salon {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  adminUserId String   @unique
+  admin       User     @relation("SalonAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  stylists    Stylist[]
+  services    Service[]
+}
+
+model Stylist {
+  id        String @id @default(uuid())
+  salonId   String
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+
+  salon     Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  @@index([salonId])
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  durationMin Int
+  priceLkr    Int
+
+  salonId     String
+  salon       Salon   @relation(fields: [salonId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

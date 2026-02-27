@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth0 } from "@/lib/auth0";
-import { getCurrentUser } from "@/lib/getUser";
-import { use } from "react";
+import { getCurrentUser } from "@/app/api/getUser";
 
 export default async function Page() {
   const session = await auth0.getSession();
@@ -17,13 +16,14 @@ export default async function Page() {
   }
 
   const user = await getCurrentUser();
+  //console.log("Page user:", user);
 
   if (!user) redirect("/auth/login");
 
   if (user.role === "customer") {
-    redirect("/home");
+    redirect("/customer/home");
   } else {
-    redirect("/dashboard");
+    redirect("/admin/dashboard");
   }
 }
 

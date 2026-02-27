@@ -1,3 +1,4 @@
+import "./globals.css";
 export const metadata = {
   title: "Trimly",
   description: "High Tech Salon Management App",

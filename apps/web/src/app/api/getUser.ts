@@ -2,6 +2,7 @@ import { auth0 } from "@/lib/auth0";
 
 export async function getCurrentUser() {
   const session = await auth0.getSession();
+
   if (!session) return null;
 
   const idToken = session.tokenSet?.idToken;
