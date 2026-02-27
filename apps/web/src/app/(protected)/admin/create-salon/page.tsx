@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getAccessToken } from "@auth0/nextjs-auth0";
 
 export default function CreateSalonPage() {
   const router = useRouter();
@@ -16,18 +17,20 @@ export default function CreateSalonPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/salon", {
+      const token = await getAccessToken();
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
+      const res = await fetch(`${apiBase}/api/salon`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, address }),
+        body: JSON.stringify({ idToken: token, name, phone, address }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.error || "Failed to create salon");
-      }
-      else {
+      } else {
         alert("Salon created successfully!");
       }
       // redirect back to dashboard
