@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "@auth0/nextjs-auth0";
+import { toast } from "sonner";
 
 export default function CreateSalonPage() {
   const router = useRouter();
@@ -31,14 +32,14 @@ export default function CreateSalonPage() {
       if (!res.ok) {
         throw new Error(data.error || "Failed to create salon");
       } else {
-        alert("Salon created successfully!");
+        toast.success("Salon created successfully");
       }
-      // redirect back to dashboard
+
       router.replace("/admin/dashboard");
       router.refresh();
     } catch (err: Error | unknown) {
       const message = err instanceof Error ? err.message : "An error occurred";
-      alert(message);
+      toast.error(message);
       console.error(err);
     } finally {
       setLoading(false);

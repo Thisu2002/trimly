@@ -10,6 +10,12 @@ datasource db {
 enum Role {
   admin
   customer
+  stylist
+}
+
+enum StylistStatus {
+  on_duty
+  on_leave
 }
 
 model User {
@@ -17,11 +23,14 @@ model User {
   auth0Sub String @unique
   name     String?
   email    String @unique
+  phone    String?
+  address  String?
   role     Role
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   adminSalon Salon?   @relation("SalonAdmin")
+  stylistProfile Stylist?
 }
 
 model Salon {
@@ -37,16 +46,26 @@ model Salon {
 
   stylists    Stylist[]
   services    Service[]
+  categories  Category[]
 }
 
 model Stylist {
   id        String @id @default(uuid())
-  salonId   String
-  name      String
-  phone     String?
-  createdAt DateTime @default(now())
 
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  salonId   String
   salon     Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  bio       String?
+  yearsOfExperience Int?
+
+  status    StylistStatus @default(on_duty)
+
+  specialties StylistSpecialty[]
+
+  createdAt DateTime @default(now())
 
   @@index([salonId])
 }
@@ -61,6 +80,34 @@ model Service {
   salonId     String
   salon       Salon   @relation(fields: [salonId], references: [id])
 
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  salonId     String
+  salon       Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  services    Service[]
+  stylists StylistSpecialty[]
+
+  createdAt   DateTime @default(now())
+
+  @@unique([name, salonId])
+}
+
+model StylistSpecialty {
+  stylistId String
+  categoryId String
+
+  stylist  Stylist  @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([stylistId, categoryId])
 }

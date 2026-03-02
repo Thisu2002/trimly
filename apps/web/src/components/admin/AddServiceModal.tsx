@@ -1,24 +1,82 @@
 "use client";
 
-import { useState } from "react";
-import { getAccessToken } from "@auth0/nextjs-auth0";
+import { useEffect, useState } from "react";
+import { getAccessToken } from "@auth0/nextjs-auth0/client";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
 
+type Category = {
+  id: string;
+  name: string;
+  description?: string | null;
+};
+
 export default function AddServiceModal({ open, onClose }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState(45);
   const [price, setPrice] = useState(1000);
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryId, setCategoryId] = useState("");
+
+  const [addNewCategory, setAddNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+
   const [loading, setLoading] = useState(false);
 
-  if (!open) return null;
+  async function fetchCategories() {
+    try {
+      const token = await getAccessToken();
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
+      const res = await fetch(
+        `${apiBase}/api/service/categories?idToken=${token}`,
+      );
+      const data = await res.json();
+      setCategories(data);
+    } catch (err) {
+      console.error("Failed to load categories", err);
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    fetchCategories();
+  }, [open]);
+
+  function resetBasicInfo() {
+    setName("");
+    setDescription("");
+    setDuration(45);
+    setPrice(1000);
+    setNewCategoryName("");
+    setNewCategoryDescription("");
+  }
+
+  function resetCategoryInfo() {
+    setCategoryId("");
+    setAddNewCategory(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!addNewCategory && !categoryId) {
+      toast.error("Please select a category");
+      return;
+    }
+
+    if (addNewCategory && !newCategoryName.trim()) {
+      toast.error("New category name is required");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -34,34 +92,57 @@ export default function AddServiceModal({ open, onClose }: Props) {
           description,
           durationMin: duration,
           priceLkr: price,
+          categoryId: addNewCategory ? null : categoryId,
+          newCategoryName: addNewCategory ? newCategoryName : null,
+          newCategoryDescription: addNewCategory
+            ? newCategoryDescription
+            : null,
         }),
       });
 
       if (!res.ok) throw new Error("Failed");
 
-      alert("Service added successfully!");
-      onClose();
-      location.reload();
-    } catch {
-      alert("Error adding service");
+      const data = await res.json();
+
+      toast.success("Service added successfully!");
+
+      if (addNewCategory && data.createdCategoryId) {
+        await fetchCategories();
+        setCategoryId(data.createdCategoryId);
+        setAddNewCategory(false);
+      }
+
+      resetBasicInfo();
+    } catch (err) {
+      console.error(err);
+      toast.error("Error adding service");
     } finally {
       setLoading(false);
     }
   }
 
+  if (!open) return null;
+
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center">
-      {/* Blur ONLY content */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={() => {
+          resetBasicInfo();
+          resetCategoryInfo();
+          onClose();
+        }}
       />
 
-      {/* Modal */}
       <div className="relative bg-[#111827] text-white w-full max-w-md p-6 rounded-xl shadow-xl border border-gray-700">
         <h2 className="text-lg font-semibold mb-4">Add Service</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form
+          onSubmit={handleSubmit}
+          className={`space-y-3 transition ${
+            loading ? "opacity-60 pointer-events-none" : ""
+          }`}
+        >
           <input
             placeholder="Service name"
             className="w-full p-2 rounded bg-gray-800 outline-none"
@@ -76,6 +157,59 @@ export default function AddServiceModal({ open, onClose }: Props) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+
+          <div className="space-y-2">
+            <select
+              disabled={addNewCategory}
+              className={`w-full p-2 rounded bg-gray-800 ${
+                addNewCategory ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
+              <option value="">Select category</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={addNewCategory}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setAddNewCategory(checked);
+
+                  if (checked) setCategoryId("");
+                  if (!checked) {
+                    setNewCategoryName("");
+                    setNewCategoryDescription("");
+                  }
+                }}
+              />
+              Add new category
+            </label>
+
+            {addNewCategory && (
+              <div className="space-y-2">
+                <input
+                  placeholder="Category name"
+                  className="w-full p-2 rounded bg-gray-800"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                />
+                <textarea
+                  placeholder="Category description"
+                  className="w-full p-2 rounded bg-gray-800"
+                  value={newCategoryDescription}
+                  onChange={(e) => setNewCategoryDescription(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-2">
             <input

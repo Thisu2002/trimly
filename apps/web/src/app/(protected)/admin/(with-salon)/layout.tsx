@@ -6,10 +6,10 @@ import { redirect } from "next/navigation";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
-  //console.log("AdminLayout user:", user);
-  if (!user || user.role !== "admin") {
+  if (!user || user.role === "customer") {
     redirect("/");
   }
+  else if(user.role === "stylist") redirect("/stylist");
 
   if (!user.adminSalon) {
     redirect("/admin/create-salon");

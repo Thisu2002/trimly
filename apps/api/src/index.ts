@@ -5,6 +5,7 @@ import { prisma } from "./lib/prisma";
 import { verifyIdToken } from "./lib/auth";
 import salonRoutes from "./routes/salon";
 import serviceRoutes from "./routes/service";
+import stylistRoutes from "./routes/stylist";
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use(
 app.use(express.json());
 app.use("/api/salon", salonRoutes);
 app.use("/api/service", serviceRoutes);
+app.use("/api/stylist", stylistRoutes);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
