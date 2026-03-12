@@ -6,7 +6,6 @@ import { management } from "../lib/auth0Management";
 const router = Router();
 
 router.post("/", async (req, res) => {
-  console.log("Create stylist request body:", req.body);
   try {
     const {
       idToken,
@@ -17,7 +16,7 @@ router.post("/", async (req, res) => {
       bio,
       yearsOfExperience,
       status,
-      specialties,
+      services,
     } = req.body;
 
     if (!idToken) return res.status(401).json({ error: "Missing token" });
@@ -54,15 +53,9 @@ router.post("/", async (req, res) => {
     });
 
     if (!auth0User.user_id) {
-  throw new Error("Auth0 user creation failed");
-}
+      throw new Error("Auth0 user creation failed");
+    }
 
-auth0Sub: auth0User.user_id,
-
-    //     await management.tickets.changePassword({
-    //   user_id: auth0User.user_id,
-    //   result_url: "http://localhost:3000/auth/login",
-    // });
     await fetch(
       `https://${process.env.AUTH0_DOMAIN}/dbconnections/change_password`,
       {
@@ -75,7 +68,6 @@ auth0Sub: auth0User.user_id,
         }),
       },
     );
-    console.log("Auth0 user created:", auth0User);
 
     const user = await prisma.user.create({
       data: {
@@ -95,18 +87,29 @@ auth0Sub: auth0User.user_id,
         bio,
         yearsOfExperience,
         status,
-        specialties: {
-          create: specialties.map((catId: string) => ({
-            categoryId: catId,
+        services: {
+          create: services.map((serviceId: string) => ({
+            serviceId,
           })),
         },
       },
     });
 
     res.json(stylist);
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ error: "Failed to create stylist" });
+
+    if (err?.statusCode === 409) {
+      return res
+        .status(409)
+        .json({ error: "A user with this email already exists" });
+    }
+
+    const statusCode = err?.statusCode || 500;
+    const message =
+      err?.body?.message || err?.message || "Failed to create stylist";
+
+    return res.status(statusCode).json({ error: message });
   }
 });
 

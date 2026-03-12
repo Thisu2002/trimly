@@ -11,7 +11,7 @@ export default function StylistsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold">Service Management</h1>
+          <h1 className="text-2xl font-semibold">Staff Management</h1>
           <p className="text-gray-400 text-sm">
             Manage categories, pricing and availability
           </p>

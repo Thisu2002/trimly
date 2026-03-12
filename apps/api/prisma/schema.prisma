@@ -18,56 +18,102 @@ enum StylistStatus {
   on_leave
 }
 
+enum DayOfWeek {
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+  sunday
+}
+
 model User {
-  id       String @id @default(uuid())
-  auth0Sub String @unique
-  name     String?
-  email    String @unique
-  phone    String?
-  address  String?
-  role     Role
+  id        String   @id @default(uuid())
+  auth0Sub  String   @unique
+  name      String?
+  email     String   @unique
+  phone     String?
+  address   String?
+  role      Role
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  adminSalon Salon?   @relation("SalonAdmin")
+  adminSalon     Salon?   @relation("SalonAdmin")
   stylistProfile Stylist?
 }
 
 model Salon {
-  id          String   @id @default(uuid())
-  name        String
-  phone       String?
-  address     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  adminUserId String   @unique
-  admin       User     @relation("SalonAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
+  adminUserId String @unique
+  admin       User   @relation("SalonAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
 
-  stylists    Stylist[]
-  services    Service[]
-  categories  Category[]
+  stylists      Stylist[]
+  services      Service[]
+  categories    Category[]
+  businessHours SalonBusinessHour[]
 }
 
 model Stylist {
-  id        String @id @default(uuid())
+  id        String   @id @default(uuid())
 
-  userId    String @unique
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   salonId   String
-  salon     Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  salon     Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
 
-  bio       String?
+  bio               String?
   yearsOfExperience Int?
+  status            StylistStatus @default(on_duty)
 
-  status    StylistStatus @default(on_duty)
-
-  specialties StylistSpecialty[]
+  services     StylistService[]
+  weeklyShifts StaffWeeklyShift[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([salonId])
+}
+
+model SalonBusinessHour {
+  id        String    @id @default(uuid())
+  salonId   String
+  salon     Salon     @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  dayOfWeek DayOfWeek
+  openTime  String
+  closeTime String
+  isClosed  Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([salonId, dayOfWeek])
+  @@index([salonId, dayOfWeek])
+}
+
+model StaffWeeklyShift {
+  id        String    @id @default(uuid())
+  stylistId String
+  stylist   Stylist   @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+
+  dayOfWeek DayOfWeek
+  startTime String
+  endTime   String
+  isOff     Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([stylistId, dayOfWeek])
+  @@index([stylistId, dayOfWeek])
 }
 
 model Service {
@@ -78,13 +124,18 @@ model Service {
   priceLkr    Int
 
   salonId     String
-  salon       Salon   @relation(fields: [salonId], references: [id])
+  salon       Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
 
-  categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  stylists    StylistService[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([salonId])
+  @@index([categoryId])
 }
 
 model Category {
@@ -95,19 +146,21 @@ model Category {
   salon       Salon    @relation(fields: [salonId], references: [id], onDelete: Cascade)
 
   services    Service[]
-  stylists StylistSpecialty[]
 
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   @@unique([name, salonId])
+  @@index([salonId])
 }
 
-model StylistSpecialty {
+model StylistService {
   stylistId String
-  categoryId String
+  serviceId String
 
-  stylist  Stylist  @relation(fields: [stylistId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  stylist   Stylist @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
-  @@id([stylistId, categoryId])
+  @@id([stylistId, serviceId])
+  @@index([serviceId])
 }

@@ -5,7 +5,17 @@ module.exports = {
     "./src/components/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+  extend: {
+    colors: {
+      brand: {
+        DEFAULT: "#2a4f7a",
+        light: "#ABD5FF",
+      },
+    },
+    boxShadow: {
+      brand: "0 0 5px rgba(171,213,255,0.35)",
+    },
   },
+},
   plugins: [],
 }

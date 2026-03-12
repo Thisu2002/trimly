@@ -9,7 +9,7 @@ interface Props {
   onClose: () => void;
 }
 
-type Category = {
+type Service = {
   id: string;
   name: string;
 };
@@ -24,25 +24,25 @@ export default function AddStylistModal({ open, onClose }: Props) {
 
   const [status, setStatus] = useState<"on_duty" | "on_leave">("on_duty");
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
 
-  async function fetchCategories() {
+  async function fetchServices() {
     const token = await getAccessToken();
     const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
-    const res = await fetch(`${apiBase}/api/service/categories?idToken=${token}`);
-    setCategories(await res.json());
+    const res = await fetch(`${apiBase}/api/service/list?idToken=${token}`);
+    setServices(await res.json());
   }
 
   useEffect(() => {
-    if (open) fetchCategories();
+    if (open) fetchServices();
   }, [open]);
 
   function toggleCategory(id: string) {
     setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }
 
@@ -66,16 +66,23 @@ export default function AddStylistModal({ open, onClose }: Props) {
           bio,
           yearsOfExperience: yoe,
           status,
-          specialties: selected,
+          services: selected,
         }),
       });
 
-      if (!res.ok) throw new Error();
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to add stylist");
+      }
 
       toast.success("Stylist added!");
       onClose();
     } catch (err) {
-      toast.error("Failed to add stylist");
+      const message =
+        err instanceof Error ? err.message : "Failed to add stylist";
+
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -91,12 +98,39 @@ export default function AddStylistModal({ open, onClose }: Props) {
         <h2 className="text-lg font-semibold">Add Stylist</h2>
 
         <form onSubmit={handleSubmit} className="space-y-2">
-          <input placeholder="Name" className="input" value={name} onChange={(e) => setName(e.target.value)} required />
-          <input placeholder="Email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input placeholder="Phone" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <input placeholder="Address" className="input" value={address} onChange={(e) => setAddress(e.target.value)} />
+          <input
+            placeholder="Name"
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <input
+            placeholder="Email"
+            className="input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            placeholder="Phone"
+            className="input"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <input
+            placeholder="Address"
+            className="input"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
 
-          <textarea placeholder="Bio" className="input" value={bio} onChange={(e) => setBio(e.target.value)} />
+          <textarea
+            placeholder="Bio"
+            className="input"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+          />
 
           <input
             type="number"
@@ -106,15 +140,21 @@ export default function AddStylistModal({ open, onClose }: Props) {
             onChange={(e) => setYoe(Number(e.target.value))}
           />
 
-          <select value={status} onChange={(e) => setStatus(e.target.value as "on_duty" | "on_leave")} className="input">
+          <select
+            value={status}
+            onChange={(e) =>
+              setStatus(e.target.value as "on_duty" | "on_leave")
+            }
+            className="input"
+          >
             <option value="on_duty">On duty</option>
             <option value="on_leave">On leave</option>
           </select>
 
           <div>
-            <p className="text-sm mb-1">Specialties</p>
+            <p className="text-sm mb-1">Services</p>
             <div className="flex flex-wrap gap-2">
-              {categories.map((c) => (
+              {services.map((c) => (
                 <button
                   type="button"
                   key={c.id}
@@ -129,7 +169,10 @@ export default function AddStylistModal({ open, onClose }: Props) {
             </div>
           </div>
 
-          <button disabled={loading} className="w-full bg-blue-600 py-2 rounded">
+          <button
+            disabled={loading}
+            className="w-full bg-blue-600 py-2 rounded"
+          >
             {loading ? "Saving..." : "Confirm"}
           </button>
         </form>
