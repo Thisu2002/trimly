@@ -136,7 +136,7 @@ router.put("/", async (req, res) => {
         if (item.openTime >= item.closeTime) {
           return res
             .status(400)
-            .json({ error: `${item.dayOfWeek}: openTime must be before closeTime` });
+            .json({ error: `${item.dayOfWeek}: Open time must be before close time` });
         }
       }
     }

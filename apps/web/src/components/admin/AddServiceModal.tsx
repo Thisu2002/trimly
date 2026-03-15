@@ -18,8 +18,8 @@ type Category = {
 export default function AddServiceModal({ open, onClose }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [duration, setDuration] = useState(45);
-  const [price, setPrice] = useState(1000);
+  const [duration, setDuration] = useState(15);
+  const [price, setPrice] = useState(500);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState("");
@@ -53,8 +53,8 @@ export default function AddServiceModal({ open, onClose }: Props) {
   function resetBasicInfo() {
     setName("");
     setDescription("");
-    setDuration(45);
-    setPrice(1000);
+    setDuration(15);
+    setPrice(500);
     setNewCategoryName("");
     setNewCategoryDescription("");
   }
@@ -124,9 +124,9 @@ export default function AddServiceModal({ open, onClose }: Props) {
   if (!open) return null;
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center">
+    <div className="absolute inset-0 z-50 flex items-center justify-center px-4">
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40"
         onClick={() => {
           resetBasicInfo();
           resetCategoryInfo();
@@ -134,7 +134,7 @@ export default function AddServiceModal({ open, onClose }: Props) {
         }}
       />
 
-      <div className="relative bg-[#111827] text-white w-full max-w-md p-6 rounded-xl shadow-xl border border-gray-700">
+      <div className="relative bg-gradient-to-b from-[#0b1220] via-[#0f1b33] to-[#08101f] text-white w-full max-w-md p-6 rounded-xl shadow-xl border border-gray-700">
         <h2 className="text-lg font-semibold mb-4">Add Service</h2>
 
         <form
@@ -212,20 +212,22 @@ export default function AddServiceModal({ open, onClose }: Props) {
           </div>
 
           <div className="flex gap-2">
+            <div>Duration (mins):
             <input
               type="number"
               placeholder="Duration (mins)"
               className="flex-1 p-2 rounded bg-gray-800 outline-none"
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
-            />
+            /></div>
+            <div>Price (LKR):
             <input
               type="number"
               placeholder="Price (LKR)"
               className="flex-1 p-2 rounded bg-gray-800 outline-none"
               value={price}
               onChange={(e) => setPrice(Number(e.target.value))}
-            />
+            /></div>
           </div>
 
           <button

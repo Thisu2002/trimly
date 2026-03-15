@@ -13,20 +13,20 @@ const nav = [
   { name: "Analytics", href: "/admin/analytics" },
   { name: "Loyalty Program", href: "/admin/loyalty" },
   { name: "Business Hours", href: "/admin/business-hours" },
-  { name: "Logout", href: "/auth/logout" }
+  { name: "Logout", href: "/auth/logout" },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 p-5">
+    <aside className="w-64 bg-gradient-to-b from-[#0b1220] via-[#0f1b33] to-[#08101f] border-r border-white/10 p-5">
       <div className="mb-6 flex justify-center">
         <Image
           src="/logo_cropped.png"
           alt="Trimly Logo"
-          width={120}
-          height={40}
+          width={100}
+          height={20}
           priority
         />
       </div>

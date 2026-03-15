@@ -47,7 +47,6 @@ export default function ServicesPage() {
     fetchServices();
   }, []);
 
-  // 🔥 Stats
   const totalServices = services.length;
   const totalCategories = new Set(
     services.map((s) => s.category?.name).filter(Boolean)
@@ -59,17 +58,15 @@ export default function ServicesPage() {
           services.reduce((sum, s) => sum + s.priceLkr, 0) / services.length
         );
 
-  // 🔥 Categories list
   const categories = useMemo(() => {
   const names = services
     .map((s) => s.category?.name)
-    .filter((name): name is string => !!name); // 🔥 type guard
+    .filter((name): name is string => !!name);
 
   const unique = Array.from(new Set(names));
   return ["All", ...unique];
 }, [services]);
 
-  // 🔥 Filter + search
   const filtered = services.filter((s) => {
     const matchesSearch = s.name
       .toLowerCase()
@@ -82,7 +79,6 @@ export default function ServicesPage() {
     return matchesSearch && matchesCategory;
   });
 
-  // 🔥 Group by category
   const grouped = filtered.reduce<Record<string, Service[]>>(
     (acc, svc) => {
       const key = svc.category?.name || "Uncategorized";
@@ -93,9 +89,31 @@ export default function ServicesPage() {
     {}
   );
 
+  const isModalOpen = open //|| !!editingServiceId;
+
+  useEffect(() => {
+  const content = document.getElementById("admin-content");
+  if (!content) return;
+
+  if (isModalOpen) {
+    content.scrollTo({ top: 0, behavior: "smooth" });
+    content.style.overflow = "hidden";
+  } else {
+    content.style.overflow = "";
+  }
+
+  return () => {
+    content.style.overflow = "";
+  };
+}, [isModalOpen]);
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <>
+    <div
+        className={`relative space-y-6 transition duration-150 ${
+          isModalOpen ? "pointer-events-none blur-sm opacity-10" : ""
+        }`}
+      >
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold">Service Management</h1>
@@ -123,7 +141,6 @@ export default function ServicesPage() {
         <StatCard title="Active" value={totalServices} />
       </div>
 
-      {/* Search + Filters */}
       <div className="bg-[#111827] border border-gray-700 rounded-xl p-4 flex gap-3">
         <input
           placeholder="Search services..."
@@ -147,7 +164,6 @@ export default function ServicesPage() {
         ))}
       </div>
 
-      {/* Services */}
       {loading && (
         <div className="text-gray-400">Loading services...</div>
       )}
@@ -170,15 +186,16 @@ export default function ServicesPage() {
           </div>
         ))}
       </div>
+      </div>
 
       <AddServiceModal
         open={open}
         onClose={() => {
           setOpen(false);
-          fetchServices(); // refresh
+          fetchServices();
         }}
       />
-    </div>
+    </>
   );
 }
 
@@ -212,7 +229,6 @@ function ServiceCard({ svc }: { svc: Service }) {
         </span>
       </div>
 
-      {/* Fake popularity bar (visual like image) */}
       <div>
         <div className="h-1 bg-gray-700 rounded-full overflow-hidden">
           <div className="bg-white h-full w-[70%]" />

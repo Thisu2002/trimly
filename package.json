@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:web": "cd apps/web && npm run dev",
+    "dev:web": "docker compose up -d && cd apps/web && npm run dev && cd ../api && npm run dev && cd prisma && npx prisma studio",
     "dev:mobile": "cd apps/mobile && npx expo start",
     "install:all": "npm install && cd apps/web && npm install && cd ../mobile && npm install"
   },

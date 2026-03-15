@@ -101,7 +101,7 @@ export default function BusinessHoursPage() {
 
       setHours(data.hours);
     } catch (err: any) {
-      setError(err.message || "Something went wrong");
+      console.error(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
