@@ -41,6 +41,17 @@ model User {
 
   adminSalon     Salon?   @relation("SalonAdmin")
   stylistProfile Stylist?
+  customerProfile Customer?
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Salon {
