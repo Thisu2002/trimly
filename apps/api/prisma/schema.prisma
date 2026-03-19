@@ -101,6 +101,7 @@ model SalonBusinessHour {
   dayOfWeek DayOfWeek
   openTime  String
   closeTime String
+  slotDuration  Int   @default(15)
   isClosed  Boolean   @default(false)
 
   createdAt DateTime @default(now())

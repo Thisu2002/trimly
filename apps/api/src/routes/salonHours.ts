@@ -20,6 +20,7 @@ type HourInput = {
   dayOfWeek: DayOfWeek;
   openTime: string;
   closeTime: string;
+  slotDuration: number;
   isClosed: boolean;
 };
 
@@ -69,6 +70,7 @@ router.post("/get", async (req, res) => {
           dayOfWeek: day,
           openTime: "09:00",
           closeTime: "18:00",
+          slotDuration: 15,
           isClosed: false,
         }
       );
@@ -128,6 +130,10 @@ router.put("/", async (req, res) => {
       }
       seen.add(item.dayOfWeek);
 
+      if (typeof item.slotDuration !== "number" || item.slotDuration <= 0) {
+        return res.status(400).json({ error: `Invalid slot duration for ${item.dayOfWeek}` });
+      }
+
       if (!item.isClosed) {
         if (!isValidTime(item.openTime) || !isValidTime(item.closeTime)) {
           return res.status(400).json({ error: `Invalid time for ${item.dayOfWeek}` });
@@ -153,6 +159,7 @@ router.put("/", async (req, res) => {
           update: {
             openTime: item.openTime,
             closeTime: item.closeTime,
+            slotDuration: item.slotDuration,
             isClosed: item.isClosed,
           },
           create: {
@@ -160,6 +167,7 @@ router.put("/", async (req, res) => {
             dayOfWeek: item.dayOfWeek,
             openTime: item.openTime,
             closeTime: item.closeTime,
+            slotDuration: item.slotDuration,
             isClosed: item.isClosed,
           },
         })

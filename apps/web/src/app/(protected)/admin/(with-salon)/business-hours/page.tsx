@@ -17,6 +17,7 @@ type BusinessHour = {
   dayOfWeek: DayOfWeek;
   openTime: string;
   closeTime: string;
+  slotDuration: number;
   isClosed: boolean;
 };
 
@@ -35,42 +36,49 @@ const DEFAULT_HOURS: BusinessHour[] = [
     dayOfWeek: "monday",
     openTime: "09:00",
     closeTime: "18:00",
+    slotDuration: 15,
     isClosed: false,
   },
   {
     dayOfWeek: "tuesday",
     openTime: "09:00",
     closeTime: "18:00",
+    slotDuration: 15,
     isClosed: false,
   },
   {
     dayOfWeek: "wednesday",
     openTime: "09:00",
     closeTime: "18:00",
+    slotDuration: 15,
     isClosed: false,
   },
   {
     dayOfWeek: "thursday",
     openTime: "09:00",
     closeTime: "18:00",
+    slotDuration: 15,
     isClosed: false,
   },
   {
     dayOfWeek: "friday",
     openTime: "09:00",
     closeTime: "18:00",
+    slotDuration: 15,
     isClosed: false,
   },
   {
     dayOfWeek: "saturday",
     openTime: "09:00",
     closeTime: "18:00",
+    slotDuration: 15,
     isClosed: false,
   },
   {
     dayOfWeek: "sunday",
     openTime: "09:00",
     closeTime: "18:00",
+    slotDuration: 15,
     isClosed: false,
   },
 ];
@@ -169,10 +177,11 @@ export default function BusinessHoursPage() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/5 shadow-sm overflow-hidden backdrop-blur-sm">
-        <div className="grid grid-cols-4 gap-4 px-5 py-4 border-b border-white/10 text-sm font-medium text-white/70">
+        <div className="grid grid-cols-5 gap-4 px-5 py-4 border-b border-white/10 text-sm font-medium text-white/70">
           <div>Day</div>
           <div>Open</div>
           <div>Close</div>
+          <div>Slot Duration</div>
           <div>Closed</div>
         </div>
 
@@ -180,7 +189,7 @@ export default function BusinessHoursPage() {
           {hours.map((item) => (
             <div
               key={item.dayOfWeek}
-              className="grid grid-cols-4 gap-4 px-5 py-4 items-center"
+              className="grid grid-cols-5 gap-4 px-5 py-4 items-center"
             >
               <div className="font-medium text-white">
                 {DAY_LABELS[item.dayOfWeek]}
@@ -205,6 +214,18 @@ export default function BusinessHoursPage() {
                   disabled={item.isClosed}
                   onChange={(e) =>
                     updateDay(item.dayOfWeek, "closeTime", e.target.value)
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white outline-none disabled:bg-white/5 disabled:text-white/40"
+                />
+              </div>
+
+              <div>
+                <input
+                  type="number"
+                  value={item.slotDuration}
+                  disabled={item.isClosed}
+                  onChange={(e) =>
+                    updateDay(item.dayOfWeek, "slotDuration", parseInt(e.target.value))
                   }
                   className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white outline-none disabled:bg-white/5 disabled:text-white/40"
                 />

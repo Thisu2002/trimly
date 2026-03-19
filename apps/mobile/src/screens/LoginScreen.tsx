@@ -1,3 +1,4 @@
+import { jwtDecode } from "jwt-decode";
 import {
   Alert,
   Pressable,
@@ -6,7 +7,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { jwtDecode } from "jwt-decode";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
@@ -31,6 +31,22 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
       const decoded = jwtDecode<IdTokenPayload>(credentials.idToken);
 
+      const res = await fetch("http://192.168.1.5:4000/api/auth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          idToken: credentials.idToken,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to sync user");
+      }
+
       onLoginSuccess({
         name: decoded.name,
         email: decoded.email,
@@ -40,15 +56,6 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
     } catch (error) {
       console.log("Login error:", error);
       Alert.alert("Login failed", "Could not complete login.");
-    }
-  }
-
-  async function handleClearSession() {
-    try {
-      await auth0.webAuth.clearSession();
-      Alert.alert("Session cleared");
-    } catch (error) {
-      console.log("Clear session error:", error);
     }
   }
 
@@ -69,13 +76,6 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
           <Pressable style={styles.button} onPress={handleLogin}>
             <Text style={styles.buttonText}>Login with Auth0</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.button, styles.secondaryButton]}
-            onPress={handleClearSession}
-          >
-            <Text style={styles.buttonText}>Clear Auth0 Session</Text>
           </Pressable>
         </View>
       </View>
@@ -136,12 +136,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
-    marginBottom: 12,
-  },
-  secondaryButton: {
-    backgroundColor: colors.surfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   buttonText: {
     color: colors.text,
