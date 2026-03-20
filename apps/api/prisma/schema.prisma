@@ -28,6 +28,13 @@ enum DayOfWeek {
   sunday
 }
 
+enum AppointmentStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+}
+
 model User {
   id        String   @id @default(uuid())
   auth0Sub  String   @unique
@@ -50,6 +57,8 @@ model Customer {
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  appointments Appointment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -69,6 +78,7 @@ model Salon {
   services      Service[]
   categories    Category[]
   businessHours SalonBusinessHour[]
+  appointments  Appointment[]
 }
 
 model Stylist {
@@ -86,6 +96,7 @@ model Stylist {
 
   services     StylistService[]
   weeklyShifts StaffWeeklyShift[]
+  appointmentServices AppointmentService[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -141,7 +152,8 @@ model Service {
   categoryId  String
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  stylists    StylistService[]
+  stylists            StylistService[]
+  appointmentServices AppointmentService[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -175,4 +187,46 @@ model StylistService {
 
   @@id([stylistId, serviceId])
   @@index([serviceId])
+}
+
+model Appointment {
+  id         String            @id @default(uuid())
+  customerId String
+  customer   Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  salonId    String
+  salon      Salon             @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  date       DateTime
+  startTime  String
+  endTime    String
+  totalLkr   Int
+  status     AppointmentStatus @default(pending)
+
+  services   AppointmentService[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([salonId, date])
+  @@index([customerId, date])
+}
+
+model AppointmentService {
+  id            String      @id @default(uuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  stylistId     String
+  stylist       Stylist     @relation(fields: [stylistId], references: [id], onDelete: Restrict)
+
+  priceLkr      Int
+  durationMin   Int
+
+  @@index([appointmentId])
+  @@index([serviceId])
+  @@index([stylistId])
 }

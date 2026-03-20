@@ -8,6 +8,7 @@ import serviceRoutes from "./routes/service";
 import stylistRoutes from "./routes/stylist";
 import salonHoursRoutes from "./routes/salonHours";
 import authRoutes from "./routes/auth";
+import mobileRoutes from "./routes/mobile";
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use("/api/service", serviceRoutes);
 app.use("/api/stylist", stylistRoutes);
 app.use("/api/salon-hours", salonHoursRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/mobile", mobileRoutes);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

@@ -1,4 +1,6 @@
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
@@ -6,9 +8,10 @@ import { AuthUser } from "../types/auth";
 type Props = {
   user: AuthUser | null;
   onLogout: () => void;
+  onBrowseSalons: () => void;
 };
 
-export default function HomeScreen({ user, onLogout }: Props) {
+export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
   async function handleLogout() {
     try {
       await auth0.webAuth.clearSession();
@@ -20,135 +23,114 @@ export default function HomeScreen({ user, onLogout }: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.brand}>TRIMLY</Text>
+    <LinearGradient
+      colors={[colors.gradientLeft, colors.gradientRight]}
+      start={{ x: 0, y: 0.5 }}
+      end={{ x: 3, y: 0.5 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.page}>
+            <Text style={styles.header}>TRIMLY</Text>
 
-        <View style={styles.hero}>
-          <Text style={styles.welcome}>Hi{user?.name ? `, ${user.name}` : ""} ✨</Text>
-          <Text style={styles.heroTitle}>Find your next salon appointment</Text>
-          <Text style={styles.heroText}>
-            This is the temporary consumer homepage. Later you can show nearby salons,
-            categories, featured services, and bookings here.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick actions</Text>
-
-          <View style={styles.grid}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Browse Salons</Text>
-              <Text style={styles.cardText}>UI placeholder for salon list</Text>
+            <View style={styles.hero}>
+              <Text style={styles.heroTitle}>Hi{user?.name ? `, ${user.name}` : ""}</Text>
+              <Text style={styles.heroText}>Find your next salon appointment.</Text>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Book Service</Text>
-              <Text style={styles.cardText}>UI placeholder for booking flow</Text>
+            <Pressable style={styles.primaryButton} onPress={onBrowseSalons}>
+              <Text style={styles.primaryButtonText}>Browse Salons</Text>
+            </Pressable>
+
+            <View style={styles.grid}>
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>My Appointments</Text>
+                <Text style={styles.cardText}>Coming next</Text>
+              </View>
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Profile</Text>
+                <Text style={styles.cardText}>{user?.email ?? "-"}</Text>
+              </View>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>My Appointments</Text>
-              <Text style={styles.cardText}>UI placeholder for bookings history</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Profile</Text>
-              <Text style={styles.cardText}>
-                {user?.email ?? "User email will appear here"}
-              </Text>
-            </View>
+            <Pressable style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutText}>Logout</Text>
+            </Pressable>
           </View>
-        </View>
-
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  safe: { flex: 1 },
+  content: { padding: 16 },
+  page: {
+    backgroundColor: colors.page,
+    borderRadius: 24,
+    padding: 18,
+    minHeight: "100%",
   },
-  content: {
-    padding: 20,
-    paddingBottom: 32,
-  },
-  brand: {
-    color: colors.primaryLight,
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 3,
+  header: {
+    fontSize: 18,
+    color: colors.textSoft,
     marginBottom: 16,
   },
   hero: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 24,
-  },
-  welcome: {
-    color: colors.primaryLight,
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 8,
+    marginBottom: 20,
   },
   heroTitle: {
-    color: colors.text,
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: "800",
-    marginBottom: 10,
+    color: colors.text,
   },
   heroText: {
-    color: colors.textSoft,
     fontSize: 15,
-    lineHeight: 22,
+    color: colors.textSoft,
+    marginTop: 6,
   },
-  section: {
-    marginBottom: 24,
+  primaryButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 20,
   },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 20,
+  primaryButtonText: {
+    color: colors.white,
+    fontSize: 16,
     fontWeight: "700",
-    marginBottom: 14,
   },
   grid: {
     gap: 12,
+    marginBottom: 20,
   },
   card: {
-    backgroundColor: colors.surfaceSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.card,
     borderRadius: 18,
     padding: 16,
   },
   cardTitle: {
-    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
+    color: colors.text,
     marginBottom: 6,
   },
   cardText: {
-    color: colors.textSoft,
     fontSize: 14,
-    lineHeight: 20,
+    color: colors.textSoft,
   },
   logoutButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingVertical: 12,
     alignItems: "center",
   },
   logoutText: {
     color: colors.text,
-    fontSize: 16,
     fontWeight: "700",
   },
 });

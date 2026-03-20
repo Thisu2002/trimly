@@ -1,18 +1,20 @@
-import { jwtDecode } from "jwt-decode";
 import {
   Alert,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { jwtDecode } from "jwt-decode";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
+import { LinearGradient } from "expo-linear-gradient";
+import { API_BASE_URL } from "../config/api";
 
 type Props = {
-  onLoginSuccess: (user: AuthUser) => void;
+  onLoginSuccess: (user: AuthUser, idToken: string) => void;
 };
 
 type IdTokenPayload = {
@@ -27,11 +29,12 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
     try {
       const credentials = await auth0.webAuth.authorize({
         scope: "openid profile email",
+        //prompt: "login",
       });
 
       const decoded = jwtDecode<IdTokenPayload>(credentials.idToken);
 
-      const res = await fetch("http://192.168.1.5:4000/api/auth", {
+      const res = await fetch(`${API_BASE_URL}/api/auth`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -47,12 +50,15 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
         throw new Error(data.error || "Failed to sync user");
       }
 
-      onLoginSuccess({
-        name: decoded.name,
-        email: decoded.email,
-        picture: decoded.picture,
-        sub: decoded.sub,
-      });
+      onLoginSuccess(
+        {
+          name: decoded.name,
+          email: decoded.email,
+          picture: decoded.picture,
+          sub: decoded.sub,
+        },
+        credentials.idToken
+      );
     } catch (error) {
       console.log("Login error:", error);
       Alert.alert("Login failed", "Could not complete login.");
@@ -60,76 +66,58 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.brand}>TRIMLY</Text>
-        <Text style={styles.title}>Consumer App</Text>
-        <Text style={styles.subtitle}>
-          Book salon services, manage appointments, and explore styles.
-        </Text>
-
+    <LinearGradient
+      colors={[colors.gradientLeft, colors.gradientRight]}
+      start={{ x: 0, y: 0.5 }}
+      end={{ x: 3, y: 0.5 }}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={styles.container}>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Welcome back</Text>
-          <Text style={styles.cardText}>
-            Sign in to continue to your consumer home.
+          <Text style={styles.brand}>TRIMLY</Text>
+          <Text style={styles.title}>Consumer App</Text>
+          <Text style={styles.subtitle}>
+            Book salon services and manage appointments easily.
           </Text>
 
           <Pressable style={styles.button} onPress={handleLogin}>
             <Text style={styles.buttonText}>Login with Auth0</Text>
           </Pressable>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 24,
+    padding: 24,
+  },
+  card: {
+    backgroundColor: colors.page,
+    borderRadius: 24,
+    padding: 24,
   },
   brand: {
-    color: colors.primaryLight,
+    color: colors.textSoft,
     fontSize: 14,
     fontWeight: "700",
     letterSpacing: 3,
     marginBottom: 12,
   },
   title: {
-    color: colors.text,
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "800",
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: 10,
   },
   subtitle: {
     color: colors.textSoft,
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 20,
-    padding: 20,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  cardText: {
-    color: colors.textSoft,
     fontSize: 15,
     lineHeight: 22,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   button: {
     backgroundColor: colors.primary,
@@ -138,7 +126,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: {
-    color: colors.text,
+    color: colors.white,
     fontSize: 16,
     fontWeight: "700",
   },
