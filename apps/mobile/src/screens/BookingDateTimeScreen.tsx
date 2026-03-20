@@ -45,7 +45,6 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
       body: JSON.stringify({
         salonId,
         date,
-        serviceIds: selectedServices.map((s) => s.id),
       }),
     });
 
@@ -62,7 +61,7 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
       start={{ x: 0, y: 0.5 }}
-      end={{ x: 3, y: 0.5 }}
+      end={{ x: 2, y: 0.5 }}
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
@@ -152,6 +151,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.page,
     borderRadius: 24,
     padding: 18,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   title: { fontSize: 34, fontWeight: "800", color: colors.text },
   progressHint: { color: colors.textSoft, marginTop: 4, marginBottom: 14 },
@@ -173,6 +174,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   dateChipSelected: {
     backgroundColor: colors.primary,
@@ -185,16 +188,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   slotButton: {
-    backgroundColor: colors.page,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.glassBorder,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
   },
   slotSelected: {
-    backgroundColor: colors.card,
-    borderColor: colors.text,
+    backgroundColor: colors.cardSoft,
+    borderColor: colors.primaryLight,
   },
   slotDisabled: {
     opacity: 0.4,
@@ -210,6 +213,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 10,
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   continueButtonText: {
     color: colors.text,

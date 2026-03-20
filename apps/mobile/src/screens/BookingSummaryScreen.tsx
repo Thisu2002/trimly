@@ -31,6 +31,7 @@ export default function BookingSummaryScreen({
       const serviceAssignments = selectedServices.map((service) => ({
         serviceId: service.id,
         stylistId: selectedStylists[service.id].id,
+        sequence: service.sequence!,
       }));
 
       const res = await fetch(`${API_BASE_URL}/api/mobile/appointments`, {
@@ -69,7 +70,7 @@ export default function BookingSummaryScreen({
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
       start={{ x: 0, y: 0.5 }}
-      end={{ x: 3, y: 0.5 }}
+      end={{ x: 2, y: 0.5 }}
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
@@ -121,6 +122,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.page,
     borderRadius: 24,
     padding: 18,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   title: { fontSize: 34, fontWeight: "800", color: colors.text },
   meta: { color: colors.textSoft, marginTop: 4 },
@@ -171,6 +174,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 10,
     marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   confirmButtonText: {
     color: colors.text,

@@ -223,10 +223,16 @@ model AppointmentService {
   stylistId     String
   stylist       Stylist     @relation(fields: [stylistId], references: [id], onDelete: Restrict)
 
+  sequence      Int
+  startTime     String
+  endTime       String
+
   priceLkr      Int
   durationMin   Int
 
   @@index([appointmentId])
   @@index([serviceId])
   @@index([stylistId])
+  @@index([stylistId, startTime, endTime])
+  @@unique([appointmentId, sequence])
 }

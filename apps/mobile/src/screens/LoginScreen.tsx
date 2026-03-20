@@ -1,5 +1,6 @@
 import {
   Alert,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -29,7 +30,6 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
     try {
       const credentials = await auth0.webAuth.authorize({
         scope: "openid profile email",
-        //prompt: "login",
       });
 
       const decoded = jwtDecode<IdTokenPayload>(credentials.idToken);
@@ -69,20 +69,31 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
       start={{ x: 0, y: 0.5 }}
-      end={{ x: 3, y: 0.5 }}
-      style={{ flex: 1 }}
+      end={{ x: 2, y: 0.5 }}
+      style={styles.gradient}
     >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.card}>
-          <Text style={styles.brand}>TRIMLY</Text>
-          <Text style={styles.title}>Consumer App</Text>
-          <Text style={styles.subtitle}>
-            Book salon services and manage appointments easily.
-          </Text>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.topSection}>
+          <Image
+            source={require("../../assets/trimly_logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
 
-          <Pressable style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Login with Auth0</Text>
-          </Pressable>
+        <View style={styles.bottomSection}>
+          <View style={styles.card}>
+            <Text style={styles.welcome}>Welcome</Text>
+            <Text style={styles.title}>Consumer App</Text>
+            <Text style={styles.subtitle}>
+              Book salon services, choose stylists, and manage appointments
+              easily.
+            </Text>
+
+            <Pressable style={styles.button} onPress={handleLogin}>
+              <Text style={styles.buttonText}>Login with Auth0</Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -90,43 +101,68 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  gradient: {
     flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  topSection: {
+    flex: 1.2,
     justifyContent: "center",
-    padding: 24,
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  bottomSection: {
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  logo: {
+    width: 220,
+    height: 220,
   },
   card: {
-    backgroundColor: colors.page,
-    borderRadius: 24,
+    backgroundColor: "rgba(10, 16, 28, 0.72070)",
+    borderRadius: 28,
     padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(171, 213, 255, 0.18)",
   },
-  brand: {
-    color: colors.textSoft,
-    fontSize: 14,
+  welcome: {
+    color: "#ABD5FF",
+    fontSize: 13,
     fontWeight: "700",
-    letterSpacing: 3,
-    marginBottom: 12,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginBottom: 10,
   },
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "800",
-    color: colors.text,
+    color: "#FFFFFF",
     marginBottom: 10,
   },
   subtitle: {
-    color: colors.textSoft,
+    color: "rgba(255,255,255,0.78)",
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 24,
   },
   button: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: "#2A4F7A",
+    borderRadius: 16,
+    paddingVertical: 15,
     alignItems: "center",
+    shadowColor: "#ABD5FF",
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   buttonText: {
-    color: colors.white,
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
   },

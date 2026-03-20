@@ -30,7 +30,10 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
           salonId,
           date,
           startTime,
-          serviceIds: selectedServices.map((s) => s.id),
+          selectedServices: selectedServices.map((s) => ({
+            serviceId: s.id,
+            sequence: s.sequence!,
+          })),
         }),
       });
       const data = await res.json();
@@ -53,7 +56,7 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
       start={{ x: 0, y: 0.5 }}
-      end={{ x: 3, y: 0.5 }}
+      end={{ x: 2, y: 0.5 }}
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
@@ -127,6 +130,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.page,
     borderRadius: 24,
     padding: 18,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   title: { fontSize: 34, fontWeight: "800", color: colors.text },
   meta: { color: colors.textSoft, marginBottom: 14 },
@@ -157,16 +162,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 12,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   stylistCardActive: {
-    borderWidth: 1,
-    borderColor: colors.text,
+    borderColor: colors.primaryLight,
   },
   avatar: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: colors.white,
+    backgroundColor: colors.chip,
     marginBottom: 8,
   },
   stylistName: {
@@ -186,6 +192,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 10,
     marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   continueButtonText: {
     color: colors.text,

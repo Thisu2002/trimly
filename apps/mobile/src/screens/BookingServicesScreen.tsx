@@ -19,7 +19,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "BookingServices">;
 export default function BookingServicesScreen({ route, navigation }: Props) {
   const { salonId } = route.params;
   const [salon, setSalon] = useState<SalonDetail | null>(null);
-  const [selected, setSelected] = useState<Record<string, ServiceItem>>({});
+  const [selected, setSelected] = useState<ServiceItem[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -29,19 +29,38 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
     })();
   }, [salonId]);
 
-  const selectedServices = useMemo(() => Object.values(selected), [selected]);
-  const total = selectedServices.reduce((sum, s) => sum + s.priceLkr, 0);
+  const total = selected.reduce((sum, s) => sum + s.priceLkr, 0);
+
+  function isSelected(serviceId: string) {
+    return selected.some((s) => s.id === serviceId);
+  }
 
   function toggleService(service: ServiceItem) {
     setSelected((prev) => {
-      const next = { ...prev };
-      if (next[service.id]) {
-        delete next[service.id];
-      } else {
-        next[service.id] = service;
+      const exists = prev.some((s) => s.id === service.id);
+
+      if (exists) {
+        return prev
+          .filter((s) => s.id !== service.id)
+          .map((s, index) => ({ ...s, sequence: index + 1 }));
       }
-      return next;
+
+      return [...prev, { ...service, sequence: prev.length + 1 }];
     });
+  }
+
+  function moveUp(index: number) {
+    if (index === 0) return;
+    const next = [...selected];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+    setSelected(next.map((s, i) => ({ ...s, sequence: i + 1 })));
+  }
+
+  function moveDown(index: number) {
+    if (index === selected.length - 1) return;
+    const next = [...selected];
+    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+    setSelected(next.map((s, i) => ({ ...s, sequence: i + 1 })));
   }
 
   if (!salon) return null;
@@ -50,7 +69,7 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
       start={{ x: 0, y: 0.5 }}
-      end={{ x: 3, y: 0.5 }}
+      end={{ x: 2, y: 0.5 }}
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
@@ -72,12 +91,12 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
               <View key={category.id} style={{ marginBottom: 16 }}>
                 <Text style={styles.sectionTitle}>{category.name}</Text>
                 {category.services.map((service) => {
-                  const isSelected = !!selected[service.id];
+                  const active = isSelected(service.id);
 
                   return (
                     <Pressable
                       key={service.id}
-                      style={[styles.item, isSelected && styles.itemSelected]}
+                      style={[styles.item, active && styles.itemSelected]}
                       onPress={() => toggleService(service)}
                     >
                       <View style={{ flex: 1 }}>
@@ -89,7 +108,7 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
                           {service.durationMin} min | LKR {service.priceLkr}
                         </Text>
                       </View>
-                      <Text style={styles.icon}>{isSelected ? "✓" : "+"}</Text>
+                      <Text style={styles.icon}>{active ? "✓" : "+"}</Text>
                     </Pressable>
                   );
                 })}
@@ -97,31 +116,58 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
             ))}
 
             <View style={styles.summary}>
-              <Text style={styles.summaryHint}>Your services will appear here...</Text>
-              {selectedServices.map((service) => (
-                <View key={service.id} style={styles.summaryRow}>
-                  <Text>{service.name}</Text>
-                  <Text>LKR {service.priceLkr}</Text>
+              <Text style={styles.summaryHint}>Selected services order</Text>
+
+              {selected.map((service, index) => (
+                <View key={service.id} style={styles.summaryCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.summaryServiceTitle}>
+                      {service.sequence}. {service.name}
+                    </Text>
+                    <Text style={styles.summaryPrice}>
+                      LKR {service.priceLkr}
+                    </Text>
+                  </View>
+
+                  <View style={styles.orderButtons}>
+                    <Pressable
+                      style={styles.orderButton}
+                      onPress={() => moveUp(index)}
+                    >
+                      <Text style={styles.orderButtonText}>↑</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.orderButton}
+                      onPress={() => moveDown(index)}
+                    >
+                      <Text style={styles.orderButtonText}>↓</Text>
+                    </Pressable>
+                  </View>
                 </View>
               ))}
+
               <View style={styles.divider} />
               <View style={styles.summaryRow}>
-                <Text style={{ fontWeight: "700" }}>Total</Text>
-                <Text style={{ fontWeight: "700" }}>LKR {total}</Text>
+                <Text style={{ fontWeight: "700", color: colors.text }}>
+                  Total
+                </Text>
+                <Text style={{ fontWeight: "700", color: colors.text }}>
+                  LKR {total}
+                </Text>
               </View>
             </View>
 
             <Pressable
-              disabled={!selectedServices.length}
+              disabled={!selected.length}
               style={[
                 styles.continueButton,
-                !selectedServices.length && { opacity: 0.5 },
+                !selected.length && { opacity: 0.5 },
               ]}
               onPress={() =>
                 navigation.navigate("BookingDateTime", {
                   salonId,
                   salonName: salon.name,
-                  selectedServices,
+                  selectedServices: selected,
                 })
               }
             >
@@ -140,6 +186,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.page,
     borderRadius: 24,
     padding: 18,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   title: { fontSize: 34, fontWeight: "800", color: colors.text },
   meta: { color: colors.textSoft, marginTop: 4 },
@@ -166,10 +214,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   itemSelected: {
-    borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.primaryLight,
   },
   itemTitle: { fontWeight: "700", color: colors.text },
   itemDesc: { fontSize: 12, color: colors.textSoft, marginTop: 4 },
@@ -185,6 +234,38 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     color: colors.textSoft,
     marginBottom: 12,
+  },
+  summaryCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: colors.cardSoft,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  summaryServiceTitle: {
+    color: colors.text,
+    fontWeight: "700",
+  },
+  summaryPrice: {
+    color: colors.textSoft,
+    marginTop: 4,
+  },
+  orderButtons: {
+    gap: 8,
+  },
+  orderButton: {
+    backgroundColor: colors.chip,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  orderButtonText: {
+    color: colors.text,
+    fontWeight: "700",
   },
   summaryRow: {
     flexDirection: "row",
@@ -203,9 +284,223 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingVertical: 10,
     marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   continueButtonText: {
     color: colors.text,
     fontWeight: "600",
   },
 });
+
+// import { useEffect, useMemo, useState } from "react";
+// import {
+//   Pressable,
+//   ScrollView,
+//   StyleSheet,
+//   Text,
+//   View,
+// } from "react-native";
+// import { SafeAreaView } from "react-native-safe-area-context";
+// import { LinearGradient } from "expo-linear-gradient";
+// import { NativeStackScreenProps } from "@react-navigation/native-stack";
+// import { RootStackParamList } from "../navigation/RootNavigator";
+// import { API_BASE_URL } from "../config/api";
+// import { SalonDetail, ServiceItem } from "../types/salon";
+// import { colors } from "../theme/colors";
+
+// type Props = NativeStackScreenProps<RootStackParamList, "BookingServices">;
+
+// export default function BookingServicesScreen({ route, navigation }: Props) {
+//   const { salonId } = route.params;
+//   const [salon, setSalon] = useState<SalonDetail | null>(null);
+//   const [selected, setSelected] = useState<Record<string, ServiceItem>>({});
+
+//   useEffect(() => {
+//     (async () => {
+//       const res = await fetch(`${API_BASE_URL}/api/mobile/salons/${salonId}`);
+//       const data = await res.json();
+//       setSalon(data.salon);
+//     })();
+//   }, [salonId]);
+
+//   const selectedServices = useMemo(() => Object.values(selected), [selected]);
+//   const total = selectedServices.reduce((sum, s) => sum + s.priceLkr, 0);
+
+//   function toggleService(service: ServiceItem) {
+//     setSelected((prev) => {
+//       const next = { ...prev };
+//       if (next[service.id]) {
+//         delete next[service.id];
+//       } else {
+//         next[service.id] = service;
+//       }
+//       return next;
+//     });
+//   }
+
+//   if (!salon) return null;
+
+//   return (
+//     <LinearGradient
+//       colors={[colors.gradientLeft, colors.gradientRight]}
+//       start={{ x: 0, y: 0.5 }}
+//       end={{ x: 3, y: 0.5 }}
+//       style={{ flex: 1 }}
+//     >
+//       <SafeAreaView style={{ flex: 1 }}>
+//         <ScrollView contentContainerStyle={styles.outer}>
+//           <View style={styles.page}>
+//             <Text style={styles.title}>{salon.name}</Text>
+//             <Text style={styles.meta}>{salon.address || "-"}</Text>
+//             <Text style={styles.openText}>Open till 18:00</Text>
+//             <Text style={styles.rating}>⭐⭐⭐⭐☆</Text>
+
+//             <View style={styles.progressRow}>
+//               <Text style={styles.progressActive}>Services</Text>
+//               <Text style={styles.progress}>Date & Time</Text>
+//               <Text style={styles.progress}>Stylist</Text>
+//               <Text style={styles.progress}>Confirm</Text>
+//             </View>
+
+//             {salon.categories.map((category) => (
+//               <View key={category.id} style={{ marginBottom: 16 }}>
+//                 <Text style={styles.sectionTitle}>{category.name}</Text>
+//                 {category.services.map((service) => {
+//                   const isSelected = !!selected[service.id];
+
+//                   return (
+//                     <Pressable
+//                       key={service.id}
+//                       style={[styles.item, isSelected && styles.itemSelected]}
+//                       onPress={() => toggleService(service)}
+//                     >
+//                       <View style={{ flex: 1 }}>
+//                         <Text style={styles.itemTitle}>{service.name}</Text>
+//                         <Text style={styles.itemDesc}>
+//                           {service.description || "Professional service"}
+//                         </Text>
+//                         <Text style={styles.itemMeta}>
+//                           {service.durationMin} min | LKR {service.priceLkr}
+//                         </Text>
+//                       </View>
+//                       <Text style={styles.icon}>{isSelected ? "✓" : "+"}</Text>
+//                     </Pressable>
+//                   );
+//                 })}
+//               </View>
+//             ))}
+
+//             <View style={styles.summary}>
+//               <Text style={styles.summaryHint}>Your services will appear here...</Text>
+//               {selectedServices.map((service) => (
+//                 <View key={service.id} style={styles.summaryRow}>
+//                   <Text>{service.name}</Text>
+//                   <Text>LKR {service.priceLkr}</Text>
+//                 </View>
+//               ))}
+//               <View style={styles.divider} />
+//               <View style={styles.summaryRow}>
+//                 <Text style={{ fontWeight: "700" }}>Total</Text>
+//                 <Text style={{ fontWeight: "700" }}>LKR {total}</Text>
+//               </View>
+//             </View>
+
+//             <Pressable
+//               disabled={!selectedServices.length}
+//               style={[
+//                 styles.continueButton,
+//                 !selectedServices.length && { opacity: 0.5 },
+//               ]}
+//               onPress={() =>
+//                 navigation.navigate("BookingDateTime", {
+//                   salonId,
+//                   salonName: salon.name,
+//                   selectedServices,
+//                 })
+//               }
+//             >
+//               <Text style={styles.continueButtonText}>Continue</Text>
+//             </Pressable>
+//           </View>
+//         </ScrollView>
+//       </SafeAreaView>
+//     </LinearGradient>
+//   );
+// }
+
+// const styles = StyleSheet.create({
+//   outer: { padding: 12 },
+//   page: {
+//     backgroundColor: colors.page,
+//     borderRadius: 24,
+//     padding: 18,
+//   },
+//   title: { fontSize: 34, fontWeight: "800", color: colors.text },
+//   meta: { color: colors.textSoft, marginTop: 4 },
+//   openText: { color: colors.accent, marginTop: 2 },
+//   rating: { color: colors.star, marginTop: 4, marginBottom: 12 },
+//   progressRow: {
+//     flexDirection: "row",
+//     justifyContent: "space-between",
+//     marginBottom: 20,
+//   },
+//   progressActive: { color: colors.text, fontWeight: "700" },
+//   progress: { color: colors.textSoft, fontSize: 12 },
+//   sectionTitle: {
+//     fontSize: 16,
+//     fontWeight: "700",
+//     marginBottom: 8,
+//     color: colors.text,
+//   },
+//   item: {
+//     backgroundColor: colors.card,
+//     borderRadius: 12,
+//     padding: 12,
+//     marginBottom: 10,
+//     flexDirection: "row",
+//     alignItems: "center",
+//     gap: 10,
+//   },
+//   itemSelected: {
+//     borderWidth: 1,
+//     borderColor: colors.primary,
+//   },
+//   itemTitle: { fontWeight: "700", color: colors.text },
+//   itemDesc: { fontSize: 12, color: colors.textSoft, marginTop: 4 },
+//   itemMeta: { fontSize: 12, color: colors.textSoft, marginTop: 4 },
+//   icon: { fontSize: 18, fontWeight: "700", color: colors.text },
+//   summary: {
+//     borderTopWidth: 1,
+//     borderTopColor: colors.border,
+//     marginTop: 12,
+//     paddingTop: 14,
+//   },
+//   summaryHint: {
+//     fontStyle: "italic",
+//     color: colors.textSoft,
+//     marginBottom: 12,
+//   },
+//   summaryRow: {
+//     flexDirection: "row",
+//     justifyContent: "space-between",
+//     marginBottom: 10,
+//   },
+//   divider: {
+//     height: 1,
+//     backgroundColor: colors.border,
+//     marginVertical: 6,
+//   },
+//   continueButton: {
+//     alignSelf: "flex-end",
+//     backgroundColor: colors.card,
+//     borderRadius: 999,
+//     paddingHorizontal: 22,
+//     paddingVertical: 10,
+//     marginTop: 12,
+//   },
+//   continueButtonText: {
+//     color: colors.text,
+//     fontWeight: "600",
+//   },
+// });

@@ -49,7 +49,7 @@ export default function SalonDetailScreen({ route, navigation }: Props) {
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
       start={{ x: 0, y: 0.5 }}
-      end={{ x: 3, y: 0.5 }}
+      end={{ x: 2, y: 0.5 }}
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
