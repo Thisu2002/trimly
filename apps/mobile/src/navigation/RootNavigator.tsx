@@ -8,6 +8,7 @@ import BookingServicesScreen from "../screens/BookingServicesScreen";
 import BookingDateTimeScreen from "../screens/BookingDateTimeScreen";
 import BookingStylistScreen from "../screens/BookingStylistScreen";
 import BookingSummaryScreen from "../screens/BookingSummaryScreen";
+import RecommendationScreen from "../screens/RecommendationScreen";
 import { AuthUser } from "../types/auth";
 import { ServiceItem, StylistItem } from "../types/salon";
 
@@ -77,6 +78,7 @@ export default function RootNavigator({
             <Stack.Screen name="BookingSummary">
               {(props) => <BookingSummaryScreen {...props} idToken={idToken!} />}
             </Stack.Screen>
+            
           </>
         ) : (
           <Stack.Screen name="Login">

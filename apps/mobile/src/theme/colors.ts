@@ -4,7 +4,7 @@ export const colors = {
 
   page: "rgba(10, 16, 28, 0)",
   card: "rgba(20, 28, 45, 0.5)",
-  cardSoft: "rgba(50, 60, 80, 0.2)",
+  cardSoft: "rgba(50, 60, 80, 0.3)",
   chip: "rgba(42, 58, 92, 0.55)",
 
   text: "#F8FAFC",

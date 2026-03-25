@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/api",
+    "services/api",
     "apps/web",
     "packages/*"
   ],
   "scripts": {
-    "dev:web": "docker compose up -d && cd apps/api && npm run dev && cd prisma && npx prisma studio && cd ../web && npm run dev",
+    "dev:web": "docker compose up -d && cd services/api && npm run dev && cd prisma && npx prisma studio && cd ../web && npm run dev",
     "dev:mobile": "cd apps/mobile && npx expo start",
     "install:all": "npm install && cd apps/web && npm install && cd ../mobile && npm install"
   },

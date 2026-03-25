@@ -83,7 +83,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
         <View style={styles.bottomSection}>
           <View style={styles.card}>
-            <Text style={styles.welcome}>Welcome</Text>
+            <Text style={styles.welcome}>Welcome 💫</Text>
             <Text style={styles.title}>Consumer App</Text>
             <Text style={styles.subtitle}>
               Book salon services, choose stylists, and manage appointments
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   title: {
-    fontSize: 30,
+    fontSize: 20,
     fontWeight: "800",
     color: "#FFFFFF",
     marginBottom: 10,

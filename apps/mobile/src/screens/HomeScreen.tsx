@@ -1,9 +1,20 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Image,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
+import { API_BASE_URL } from "../config/api";
+import RecommendationScreen from "./RecommendationScreen";
+import { useState } from "react";
 
 type Props = {
   user: AuthUser | null;
@@ -12,6 +23,7 @@ type Props = {
 };
 
 export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
+  const [recommendations, setRecommendations] = useState<any[] | null>(null);
   async function handleLogout() {
     try {
       await auth0.webAuth.clearSession();
@@ -20,6 +32,40 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
       console.log("Logout error:", error);
       Alert.alert("Logout failed", "Could not log out properly.");
     }
+  }
+
+  async function handleTestRecommendation() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/recommendation/style`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          faceShape: "round",
+          hairType: "wavy",
+          hairLength: "medium",
+          styleGoal: "low_maintenance",
+          previousServices: ["Haircut", "Hair Spa"],
+        }),
+      });
+
+      const data = await res.json();
+      setRecommendations(data.recommendations || []);
+      //console.log("Recommendation result:", data);
+      Alert.alert("Success", JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.log("Recommendation error:", error);
+      Alert.alert("Error", "Failed to fetch recommendations.");
+    }
+  }
+  if (recommendations) {
+    return (
+      <RecommendationScreen
+        recommendations={recommendations}
+        onBack={() => setRecommendations(null)}
+      />
+    );
   }
 
   return (
@@ -32,11 +78,18 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.page}>
-            <Text style={styles.header}>TRIMLY</Text>
-
+            <Image
+                        source={require("../../assets/logo_cropped.png")}
+                        style={styles.logo}
+                        resizeMode="contain"
+                      />
             <View style={styles.hero}>
-              <Text style={styles.heroTitle}>Hi{user?.name ? `, ${user.name}` : ""}</Text>
-              <Text style={styles.heroText}>Find your next salon appointment.</Text>
+              <Text style={styles.heroTitle}>
+                Hi{user?.name ? `, ${user.name}` : ""}
+              </Text>
+              <Text style={styles.heroText}>
+                Find your next salon appointment.
+              </Text>
             </View>
 
             <Pressable style={styles.primaryButton} onPress={onBrowseSalons}>
@@ -53,6 +106,13 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
                 <Text style={styles.cardText}>{user?.email ?? "-"}</Text>
               </View>
             </View>
+
+            <Pressable
+              style={styles.primaryButton}
+              onPress={handleTestRecommendation}
+            >
+              <Text style={styles.primaryButtonText}>Test Recommendations</Text>
+            </Pressable>
 
             <Pressable style={styles.logoutButton} onPress={handleLogout}>
               <Text style={styles.logoutText}>Logout</Text>
@@ -73,10 +133,9 @@ const styles = StyleSheet.create({
     padding: 18,
     minHeight: "100%",
   },
-  header: {
-    fontSize: 18,
-    color: colors.textSoft,
-    marginBottom: 16,
+  logo: {
+    width: 150,
+    height: 150,
   },
   hero: {
     marginBottom: 20,
