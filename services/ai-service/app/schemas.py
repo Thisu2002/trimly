@@ -21,7 +21,7 @@ class RecommendationResult(BaseModel):
     description: str
     score: int
     reasons: List[str]
-    recommendedStyles: List[str]
+    recommendedStyles: List[str]  # fixed: was "recommendedServices" — must match data.py
 
 
 class RecommendationResponse(BaseModel):

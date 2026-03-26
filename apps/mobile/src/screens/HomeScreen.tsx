@@ -9,31 +9,22 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
 import { API_BASE_URL } from "../config/api";
-import RecommendationScreen from "./RecommendationScreen";
-import { useState } from "react";
+import { RootStackParamList } from "../navigation/RootNavigator";
 
-type Recommendation = {
-  id: string;
-  name: string;
-  description: string;
-  recommendedStyles: string[];
-  reasons: string[];
-  score: number;
-};
-
-type Service = {
-  id: string;
-  name: string;
-  priceLkr: number;
-  durationMin: number;
-  category: {
-    name: string;
-  };
-};
+// ── Hardcoded profile (mirror/camera step would populate this in future) ──────
+const HAIR_PROFILE = {
+  faceShape: "round",
+  hairType: "wavy",
+  hairLength: "medium",
+  styleGoal: "low_maintenance",
+  previousServices: ["Haircut", "Hair Spa"],
+} as const;
 
 type Props = {
   user: AuthUser | null;
@@ -42,11 +33,16 @@ type Props = {
   onBrowseAppointments: () => void;
 };
 
-export default function HomeScreen({ user, onLogout, onBrowseSalons, onBrowseAppointments }: Props) {
-  const [recommendations, setRecommendations] = useState<
-    Recommendation[] | null
-  >(null);
-  const [matchedServices, setMatchedServices] = useState<Service[]>([]);
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
+
+export default function HomeScreen({
+  user,
+  onLogout,
+  onBrowseSalons,
+  onBrowseAppointments,
+}: Props) {
+  const navigation = useNavigation<NavProp>();
+
   async function handleLogout() {
     try {
       await auth0.webAuth.clearSession();
@@ -57,38 +53,27 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons, onBrowseApp
     }
   }
 
-  async function handleTestRecommendation() {
+  async function handleGetRecommendations() {
     try {
       const res = await fetch(`${API_BASE_URL}/recommendation/style`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          faceShape: "round",
-          hairType: "wavy",
-          hairLength: "medium",
-          styleGoal: "low_maintenance",
-          previousServices: ["Haircut", "Hair Spa"],
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(HAIR_PROFILE),
       });
 
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
+
       const data = await res.json();
-      setRecommendations(data.ai.recommendations || []);
-      setMatchedServices(data.matchedServices || []);
+
+      navigation.navigate("StyleRecommendation", {
+        recommendations: data.ai?.recommendations ?? [],
+        matchedServices: data.matchedServices ?? [],
+        profile: HAIR_PROFILE,
+      });
     } catch (error) {
       console.log("Recommendation error:", error);
-      Alert.alert("Error", "Failed to fetch recommendations.");
+      Alert.alert("Error", "Failed to fetch recommendations. Please try again.");
     }
-  }
-  if (recommendations) {
-    return (
-      <RecommendationScreen
-        recommendations={recommendations}
-        matchedServices={matchedServices}
-        onBack={() => setRecommendations(null)}
-      />
-    );
   }
 
   return (
@@ -120,10 +105,7 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons, onBrowseApp
             </Pressable>
 
             <View style={styles.grid}>
-              <Pressable
-                style={styles.card}
-                onPress={onBrowseAppointments} // new prop
-              >
+              <Pressable style={styles.card} onPress={onBrowseAppointments}>
                 <Text style={styles.cardTitle}>My Appointments</Text>
                 <Text style={styles.cardText}>View history</Text>
               </Pressable>
@@ -133,11 +115,14 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons, onBrowseApp
               </View>
             </View>
 
-            <Pressable
-              style={styles.primaryButton}
-              onPress={handleTestRecommendation}
-            >
-              <Text style={styles.primaryButtonText}>Test Recommendations</Text>
+            <Pressable style={styles.recommendCard} onPress={handleGetRecommendations}>
+              <View style={styles.recommendTextWrap}>
+                <Text style={styles.recommendTitle}>Style Recommendations</Text>
+                <Text style={styles.recommendSub}>
+                  Based on your hair profile — see which styles & salons suit you
+                </Text>
+              </View>
+              <Text style={styles.recommendArrow}>→</Text>
             </Pressable>
 
             <Pressable style={styles.logoutButton} onPress={handleLogout}>
@@ -206,6 +191,35 @@ const styles = StyleSheet.create({
   cardText: {
     fontSize: 14,
     color: colors.textSoft,
+  },
+  recommendCard: {
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  recommendTextWrap: {
+    flex: 1,
+    marginRight: 12,
+  },
+  recommendTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.white,
+    marginBottom: 4,
+  },
+  recommendSub: {
+    fontSize: 12,
+    color: colors.white,
+    opacity: 0.85,
+  },
+  recommendArrow: {
+    fontSize: 22,
+    color: colors.white,
+    fontWeight: "700",
   },
   logoutButton: {
     borderWidth: 1,

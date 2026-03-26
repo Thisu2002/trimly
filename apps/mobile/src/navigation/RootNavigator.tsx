@@ -9,8 +9,9 @@ import BookingDateTimeScreen from "../screens/BookingDateTimeScreen";
 import BookingStylistScreen from "../screens/BookingStylistScreen";
 import BookingSummaryScreen from "../screens/BookingSummaryScreen";
 import AppointmentHistoryScreen from "../screens/AppointmentHistoryScreen";
+import StyleRecommendationScreen from "../screens/StyleRecommendationScreen";
 import { AuthUser } from "../types/auth";
-import { ServiceItem, StylistItem } from "../types/salon";
+import { ServiceItem, StylistItem, Recommendation, MatchedService } from "../types/salon";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -40,6 +41,17 @@ export type RootStackParamList = {
     idToken: string;
   };
   Appointments: undefined;
+  StyleRecommendation: {
+    recommendations: Recommendation[];
+    matchedServices: MatchedService[];
+    profile: {
+      faceShape: string;
+      hairType: string;
+      hairLength: string;
+      styleGoal: string;
+      previousServices: string[];
+    };
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -94,6 +106,10 @@ export default function RootNavigator({
             <Stack.Screen name="Appointments">
               {(props) => <AppointmentHistoryScreen {...props} user={user} />}
             </Stack.Screen>
+            <Stack.Screen
+              name="StyleRecommendation"
+              component={StyleRecommendationScreen}
+            />
           </>
         ) : (
           <Stack.Screen name="Login">

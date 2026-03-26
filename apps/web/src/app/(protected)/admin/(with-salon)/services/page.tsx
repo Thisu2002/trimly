@@ -130,7 +130,6 @@ export default function ServicesPage() {
         </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard title="Total Services" value={totalServices} />
         <StatCard title="Categories" value={totalCategories} />

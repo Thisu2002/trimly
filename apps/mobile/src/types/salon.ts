@@ -62,61 +62,30 @@ export type AvailableStylistGroup = {
   stylists: StylistItem[];
 };
 
-// export type SalonListItem = {
-//   id: string;
-//   name: string;
-//   address?: string | null;
-//   phone?: string | null;
-//   rating: number;
-//   reviewCount: number;
-//   serviceCount: number;
-//   stylistCount: number;
-// };
+// ── Recommendation types ──────────────────────────────────────────────────────
 
-// export type ServiceItem = {
-//   id: string;
-//   name: string;
-//   description?: string | null;
-//   durationMin: number;
-//   priceLkr: number;
-// };
+export type RecommendedSalon = {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+};
 
-// export type CategoryItem = {
-//   id: string;
-//   name: string;
-//   description?: string | null;
-//   services: ServiceItem[];
-// };
+export type MatchedService = {
+  id: string;
+  name: string;
+  priceLkr: number;
+  durationMin: number;
+  category: { name: string };
+  style?: { name: string } | null;
+  salon: RecommendedSalon;
+};
 
-// export type StylistItem = {
-//   id: string;
-//   name: string;
-//   bio?: string | null;
-//   yearsOfExperience?: number | null;
-// };
-
-// export type SalonDetail = {
-//   id: string;
-//   name: string;
-//   address?: string | null;
-//   phone?: string | null;
-//   about: string;
-//   rating: number;
-//   reviewCount: number;
-//   photoSlots: number;
-//   categories: CategoryItem[];
-//   stylists: StylistItem[];
-// };
-
-// export type SlotItem = {
-//   startTime: string;
-//   endTime: string;
-//   disabled: boolean;
-//   salonBusy: boolean;
-// };
-
-// export type AvailableStylistGroup = {
-//   serviceId: string;
-//   serviceName: string;
-//   stylists: StylistItem[];
-// };
+export type Recommendation = {
+  id: string;
+  name: string;
+  description: string;
+  recommendedStyles: string[];
+  reasons: string[];
+  score: number;
+};

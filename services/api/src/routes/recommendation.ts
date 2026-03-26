@@ -29,27 +29,57 @@ router.post("/style", async (req, res) => {
 
     const aiData = await aiRes.json();
 
-    const styleNames = aiData.recommendations.flatMap(
-      (r: any) => r.recommendedStyles,
+    const styleNames: string[] = aiData.recommendations.flatMap(
+      (r: any) => r.recommendedStyles as string[],
     );
 
+    // Find styles by exact name OR partial keyword match for robustness
     const styles = await prisma.style.findMany({
-      where: { name: { in: styleNames } },
+      where: {
+        name: {
+          in: styleNames,
+          mode: "insensitive",
+        },
+      },
     });
 
     const styleIds = styles.map((s) => s.id);
 
-    let services = [];
-    services = await prisma.service.findMany({
+    // Include salon so the mobile app knows WHERE each service is offered
+    const services = await prisma.service.findMany({
       where: {
         styleId: { in: styleIds },
       },
-      include: { category: true },
+      include: {
+        category: {
+          select: { name: true },
+        },
+        salon: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            phone: true,
+          },
+        },
+        style: {
+          select: { name: true },
+        },
+      },
     });
+
+    // Group services by style name so the frontend can align them with recommendations
+    const servicesByStyle: Record<string, typeof services> = {};
+    for (const svc of services) {
+      const styleName = svc.style?.name ?? "Unknown";
+      if (!servicesByStyle[styleName]) servicesByStyle[styleName] = [];
+      servicesByStyle[styleName].push(svc);
+    }
 
     return res.json({
       ai: aiData,
       matchedServices: services,
+      servicesByStyle,
     });
   } catch (error) {
     console.error(error);
