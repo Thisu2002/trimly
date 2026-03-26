@@ -8,7 +8,7 @@ import BookingServicesScreen from "../screens/BookingServicesScreen";
 import BookingDateTimeScreen from "../screens/BookingDateTimeScreen";
 import BookingStylistScreen from "../screens/BookingStylistScreen";
 import BookingSummaryScreen from "../screens/BookingSummaryScreen";
-import RecommendationScreen from "../screens/RecommendationScreen";
+import AppointmentHistoryScreen from "../screens/AppointmentHistoryScreen";
 import { AuthUser } from "../types/auth";
 import { ServiceItem, StylistItem } from "../types/salon";
 
@@ -39,6 +39,7 @@ export type RootStackParamList = {
     selectedStylists: Record<string, StylistItem>;
     idToken: string;
   };
+  Appointments: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -67,18 +68,32 @@ export default function RootNavigator({
                   user={user}
                   onLogout={onLogout}
                   onBrowseSalons={() => navigation.navigate("SalonList")}
+                  onBrowseAppointments={() => navigation.navigate("Appointments")}
                 />
               )}
             </Stack.Screen>
             <Stack.Screen name="SalonList" component={SalonListScreen} />
             <Stack.Screen name="SalonDetail" component={SalonDetailScreen} />
-            <Stack.Screen name="BookingServices" component={BookingServicesScreen} />
-            <Stack.Screen name="BookingDateTime" component={BookingDateTimeScreen} />
-            <Stack.Screen name="BookingStylist" component={BookingStylistScreen} />
+            <Stack.Screen
+              name="BookingServices"
+              component={BookingServicesScreen}
+            />
+            <Stack.Screen
+              name="BookingDateTime"
+              component={BookingDateTimeScreen}
+            />
+            <Stack.Screen
+              name="BookingStylist"
+              component={BookingStylistScreen}
+            />
             <Stack.Screen name="BookingSummary">
-              {(props) => <BookingSummaryScreen {...props} idToken={idToken!} />}
+              {(props) => (
+                <BookingSummaryScreen {...props} idToken={idToken!} />
+              )}
             </Stack.Screen>
-            
+            <Stack.Screen name="Appointments">
+              {(props) => <AppointmentHistoryScreen {...props} user={user} />}
+            </Stack.Screen>
           </>
         ) : (
           <Stack.Screen name="Login">

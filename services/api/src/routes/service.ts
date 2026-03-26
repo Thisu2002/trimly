@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { verifyIdToken } from "../lib/auth";
+import { detectStyleId } from "../utils/styleMatcher";
 
 const router = Router();
 
@@ -47,6 +48,8 @@ router.post("/", async (req, res) => {
       finalCategoryId = newCategory.id;
     }
 
+    const detectedStyleId = await detectStyleId(name);
+
     const service = await prisma.service.create({
       data: {
         name,
@@ -55,6 +58,7 @@ router.post("/", async (req, res) => {
         priceLkr,
         salonId: user.adminSalon.id,
         categoryId: finalCategoryId || null,
+        styleId: detectedStyleId,
       },
     });
 

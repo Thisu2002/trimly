@@ -52,7 +52,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
       onLoginSuccess(
         {
-          name: decoded.name,
+          name: data.user.name,
           email: decoded.email,
           picture: decoded.picture,
           sub: decoded.sub,

@@ -7,7 +7,7 @@ reference_looks = [
         "suitableHairTypes": ["straight", "wavy"],
         "suitableHairLengths": ["short", "medium"],
         "styleGoals": ["low_maintenance", "professional", "volume"],
-        "recommendedServices": ["Haircut", "Blow Dry"],
+        "recommendedStyles": ["Layered Bob", "Blow Dry"],
     },
     {
         "id": "look_002",
@@ -17,7 +17,7 @@ reference_looks = [
         "suitableHairTypes": ["wavy", "curly"],
         "suitableHairLengths": ["medium", "long"],
         "styleGoals": ["trendy", "professional"],
-        "recommendedServices": ["Hair Styling", "Trim", "Hair Spa"],
+        "recommendedStyles": ["Textured Lob", "Hair Spa", "Blow Dry"],
     },
     {
         "id": "look_003",
@@ -27,7 +27,7 @@ reference_looks = [
         "suitableHairTypes": ["straight", "wavy"],
         "suitableHairLengths": ["medium"],
         "styleGoals": ["low_maintenance", "trendy"],
-        "recommendedServices": ["Haircut", "Texture Styling"],
+        "recommendedStyles": ["Textured Lob", "Blow Dry"],
     },
     {
         "id": "look_004",
@@ -37,7 +37,7 @@ reference_looks = [
         "suitableHairTypes": ["curly", "coily"],
         "suitableHairLengths": ["short", "medium", "long"],
         "styleGoals": ["volume", "low_maintenance"],
-        "recommendedServices": ["Curly Cut", "Deep Conditioning"],
+        "recommendedStyles": ["Defined Curly Cut", "Deep Conditioning"],
     },
     {
         "id": "look_005",
@@ -47,7 +47,7 @@ reference_looks = [
         "suitableHairTypes": ["straight"],
         "suitableHairLengths": ["medium", "long"],
         "styleGoals": ["professional", "trendy"],
-        "recommendedServices": ["Layer Cut", "Blowout", "Smoothening Treatment"],
+        "recommendedStyles": ["Sleek Layers", "Blow Dry", "Keratin Treatment"],
     },
     {
         "id": "look_006",
@@ -57,6 +57,6 @@ reference_looks = [
         "suitableHairTypes": ["straight", "wavy", "curly", "coily"],
         "suitableHairLengths": ["short", "medium", "long"],
         "styleGoals": ["repair"],
-        "recommendedServices": ["Trim", "Deep Conditioning", "Hair Spa"],
+        "recommendedStyles": ["Trim", "Deep Conditioning", "Hair Spa"],
     },
 ]

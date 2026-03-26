@@ -139,6 +139,20 @@ model StaffWeeklyShift {
   @@index([stylistId, dayOfWeek])
 }
 
+model Style {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  category    String   // Haircut, Color, Treatment, Styling
+
+  services    Service[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name])
+}
+
 model Service {
   id          String   @id @default(uuid())
   name        String
@@ -152,6 +166,9 @@ model Service {
   categoryId  String
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
+  styleId     String?
+  style       Style? @relation(fields: [styleId], references: [id])
+
   stylists            StylistService[]
   appointmentServices AppointmentService[]
 
@@ -160,6 +177,7 @@ model Service {
 
   @@index([salonId])
   @@index([categoryId])
+  @@index([styleId])
 }
 
 model Category {

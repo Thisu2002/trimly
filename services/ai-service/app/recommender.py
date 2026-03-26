@@ -28,7 +28,7 @@ def get_style_recommendations(input_data: RecommendationInput):
         if input_data.previousServices:
             matched = [
                 service
-                for service in look["recommendedServices"]
+                for service in look["recommendedStyles"]
                 if service.lower() in [s.lower() for s in input_data.previousServices]
             ]
             if matched:
@@ -42,7 +42,7 @@ def get_style_recommendations(input_data: RecommendationInput):
                 "description": look["description"],
                 "score": score,
                 "reasons": reasons,
-                "recommendedServices": look["recommendedServices"],
+                "recommendedStyles": look["recommendedStyles"],
             }
         )
 

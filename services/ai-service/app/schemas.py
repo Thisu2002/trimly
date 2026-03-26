@@ -21,7 +21,7 @@ class RecommendationResult(BaseModel):
     description: str
     score: int
     reasons: List[str]
-    recommendedServices: List[str]
+    recommendedStyles: List[str]
 
 
 class RecommendationResponse(BaseModel):

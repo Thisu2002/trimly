@@ -16,14 +16,37 @@ import { API_BASE_URL } from "../config/api";
 import RecommendationScreen from "./RecommendationScreen";
 import { useState } from "react";
 
+type Recommendation = {
+  id: string;
+  name: string;
+  description: string;
+  recommendedStyles: string[];
+  reasons: string[];
+  score: number;
+};
+
+type Service = {
+  id: string;
+  name: string;
+  priceLkr: number;
+  durationMin: number;
+  category: {
+    name: string;
+  };
+};
+
 type Props = {
   user: AuthUser | null;
   onLogout: () => void;
   onBrowseSalons: () => void;
+  onBrowseAppointments: () => void;
 };
 
-export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
-  const [recommendations, setRecommendations] = useState<any[] | null>(null);
+export default function HomeScreen({ user, onLogout, onBrowseSalons, onBrowseAppointments }: Props) {
+  const [recommendations, setRecommendations] = useState<
+    Recommendation[] | null
+  >(null);
+  const [matchedServices, setMatchedServices] = useState<Service[]>([]);
   async function handleLogout() {
     try {
       await auth0.webAuth.clearSession();
@@ -51,9 +74,8 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
       });
 
       const data = await res.json();
-      setRecommendations(data.recommendations || []);
-      //console.log("Recommendation result:", data);
-      Alert.alert("Success", JSON.stringify(data, null, 2));
+      setRecommendations(data.ai.recommendations || []);
+      setMatchedServices(data.matchedServices || []);
     } catch (error) {
       console.log("Recommendation error:", error);
       Alert.alert("Error", "Failed to fetch recommendations.");
@@ -63,6 +85,7 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
     return (
       <RecommendationScreen
         recommendations={recommendations}
+        matchedServices={matchedServices}
         onBack={() => setRecommendations(null)}
       />
     );
@@ -79,10 +102,10 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.page}>
             <Image
-                        source={require("../../assets/logo_cropped.png")}
-                        style={styles.logo}
-                        resizeMode="contain"
-                      />
+              source={require("../../assets/logo_cropped.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <View style={styles.hero}>
               <Text style={styles.heroTitle}>
                 Hi{user?.name ? `, ${user.name}` : ""}
@@ -97,10 +120,13 @@ export default function HomeScreen({ user, onLogout, onBrowseSalons }: Props) {
             </Pressable>
 
             <View style={styles.grid}>
-              <View style={styles.card}>
+              <Pressable
+                style={styles.card}
+                onPress={onBrowseAppointments} // new prop
+              >
                 <Text style={styles.cardTitle}>My Appointments</Text>
-                <Text style={styles.cardText}>Coming next</Text>
-              </View>
+                <Text style={styles.cardText}>View history</Text>
+              </Pressable>
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>Profile</Text>
                 <Text style={styles.cardText}>{user?.email ?? "-"}</Text>

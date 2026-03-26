@@ -16,6 +16,7 @@ export type ServiceItem = {
   durationMin: number;
   priceLkr: number;
   sequence?: number;
+  styleId?: string | null;
 };
 
 export type CategoryItem = {
