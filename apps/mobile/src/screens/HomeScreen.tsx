@@ -14,20 +14,11 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
-import { API_BASE_URL } from "../config/api";
 import { RootStackParamList } from "../navigation/RootNavigator";
-
-// ── Hardcoded profile (mirror/camera step would populate this in future) ──────
-const HAIR_PROFILE = {
-  faceShape: "round",
-  hairType: "wavy",
-  hairLength: "medium",
-  styleGoal: "low_maintenance",
-  previousServices: ["Haircut", "Hair Spa"],
-} as const;
 
 type Props = {
   user: AuthUser | null;
+  idToken: string | null;
   onLogout: () => void;
   onBrowseSalons: () => void;
   onBrowseAppointments: () => void;
@@ -50,29 +41,6 @@ export default function HomeScreen({
     } catch (error) {
       console.log("Logout error:", error);
       Alert.alert("Logout failed", "Could not log out properly.");
-    }
-  }
-
-  async function handleGetRecommendations() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/recommendation/style`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(HAIR_PROFILE),
-      });
-
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-
-      const data = await res.json();
-
-      navigation.navigate("StyleRecommendation", {
-        recommendations: data.ai?.recommendations ?? [],
-        matchedServices: data.matchedServices ?? [],
-        profile: HAIR_PROFILE,
-      });
-    } catch (error) {
-      console.log("Recommendation error:", error);
-      Alert.alert("Error", "Failed to fetch recommendations. Please try again.");
     }
   }
 
@@ -115,14 +83,38 @@ export default function HomeScreen({
               </View>
             </View>
 
-            <Pressable style={styles.recommendCard} onPress={handleGetRecommendations}>
-              <View style={styles.recommendTextWrap}>
-                <Text style={styles.recommendTitle}>Style Recommendations</Text>
-                <Text style={styles.recommendSub}>
-                  Based on your hair profile — see which styles & salons suit you
-                </Text>
+            {/* Mirror CTA — opens camera + AR hair try-on */}
+            <Pressable
+              style={styles.mirrorCard}
+              onPress={() => navigation.navigate("Mirror")}
+            >
+              <View style={styles.featureTextWrap}>
+                <Text style={styles.featureEmoji}>🪞</Text>
+                <View>
+                  <Text style={styles.featureTitle}>Virtual Mirror</Text>
+                  <Text style={styles.featureSub}>
+                    Try hairstyles live — we'll detect your face shape & recommend styles
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.recommendArrow}>→</Text>
+              <Text style={styles.featureArrow}>›</Text>
+            </Pressable>
+
+            {/* Recommendation CTA — goes straight to results using saved profile */}
+            <Pressable
+              style={styles.recommendCard}
+              onPress={() => navigation.navigate("StyleRecommendation")}
+            >
+              <View style={styles.featureTextWrap}>
+                <Text style={styles.featureEmoji}>✨</Text>
+                <View style={styles.featureTextInner}>
+                  <Text style={styles.featureTitle}>Style Recommendations</Text>
+                  <Text style={styles.featureSub}>
+                    Based on your saved hair profile
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.featureArrow}>›</Text>
             </Pressable>
 
             <Pressable style={styles.logoutButton} onPress={handleLogout}>
@@ -144,23 +136,10 @@ const styles = StyleSheet.create({
     padding: 18,
     minHeight: "100%",
   },
-  logo: {
-    width: 150,
-    height: 150,
-  },
-  hero: {
-    marginBottom: 20,
-  },
-  heroTitle: {
-    fontSize: 30,
-    fontWeight: "800",
-    color: colors.text,
-  },
-  heroText: {
-    fontSize: 15,
-    color: colors.textSoft,
-    marginTop: 6,
-  },
+  logo: { width: 150, height: 150 },
+  hero: { marginBottom: 20 },
+  heroTitle: { fontSize: 30, fontWeight: "800", color: colors.text },
+  heroText: { fontSize: 15, color: colors.textSoft, marginTop: 6 },
   primaryButton: {
     backgroundColor: colors.primary,
     borderRadius: 20,
@@ -168,15 +147,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  primaryButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  grid: {
-    gap: 12,
-    marginBottom: 20,
-  },
+  primaryButtonText: { color: colors.white, fontSize: 16, fontWeight: "700" },
+  grid: { gap: 12, marginBottom: 20 },
   card: {
     backgroundColor: colors.card,
     borderRadius: 18,
@@ -188,9 +160,19 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 6,
   },
-  cardText: {
-    fontSize: 14,
-    color: colors.textSoft,
+  cardText: { fontSize: 14, color: colors.textSoft },
+
+  // Mirror card — distinct accent colour to feel special
+  mirrorCard: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   recommendCard: {
     backgroundColor: colors.primary,
@@ -201,26 +183,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  recommendTextWrap: {
+  featureTextWrap: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
     marginRight: 12,
+    gap: 12,
   },
-  recommendTitle: {
-    fontSize: 16,
+  featureTextInner: { flex: 1 },
+  featureEmoji: { fontSize: 28 },
+  featureTitle: {
+    fontSize: 15,
     fontWeight: "700",
-    color: colors.white,
-    marginBottom: 4,
+    color: colors.text,
+    marginBottom: 3,
   },
-  recommendSub: {
-    fontSize: 12,
-    color: colors.white,
-    opacity: 0.85,
-  },
-  recommendArrow: {
-    fontSize: 22,
-    color: colors.white,
-    fontWeight: "700",
-  },
+  featureSub: { fontSize: 12, color: colors.textSoft },
+  featureArrow: { fontSize: 22, color: colors.primary, fontWeight: "700" },
   logoutButton: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -228,8 +207,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
   },
-  logoutText: {
-    color: colors.text,
-    fontWeight: "700",
-  },
+  logoutText: { color: colors.text, fontWeight: "700" },
 });

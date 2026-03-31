@@ -11,6 +11,8 @@ import authRoutes from "./routes/auth";
 import mobileRoutes from "./routes/mobile";
 import recommendationRoutes from "./routes/recommendation";
 import appointmentRoutes from "./routes/appointment";
+import paymentRoutes from "./routes/payment";
+import hairProfileRoutes from "./routes/hairProfile";
 
 const app = express();
 
@@ -21,7 +23,13 @@ app.use(
   })
 );
 
+app.use((req, res, next) => {
+  console.log(`→ ${req.method} ${req.path}`);
+  next();
+});
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use("/api/salon", salonRoutes);
 app.use("/api/service", serviceRoutes);
 app.use("/api/stylist", stylistRoutes);
@@ -30,6 +38,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/mobile", mobileRoutes);
 app.use("/recommendation", recommendationRoutes);
 app.use("/api/appointment", appointmentRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/hair-profile", hairProfileRoutes);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

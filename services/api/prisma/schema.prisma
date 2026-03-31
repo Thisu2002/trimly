@@ -49,6 +49,8 @@ model User {
   adminSalon     Salon?   @relation("SalonAdmin")
   stylistProfile Stylist?
   customerProfile Customer?
+  hairProfile UserHairProfile?
+  pendingPayments PendingPayment[]
 }
 
 model Customer {
@@ -58,6 +60,27 @@ model Customer {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserHairProfile {
+  id        String   @id @default(uuid())
+
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  faceShape  String?  // oval | round | square | heart | diamond | oblong
+  hairType   String?  // straight | wavy | curly | coily
+  hairLength String?  // short | medium | long
+  styleGoal  String?  // low_maintenance | trendy | professional | volume | repair
+
+  // Derived from appointment history — updated each time recommendations are fetched
+  previousServices String[] @default([])
+
+  // How faceShape was detected
+  detectionMethod  String?  // "mirror" | "manual"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -220,6 +243,8 @@ model Appointment {
   endTime    String
   totalLkr   Int
   status     AppointmentStatus @default(pending)
+  payment Payment?
+  pendingPayment  PendingPayment?
 
   services   AppointmentService[]
 
@@ -253,4 +278,32 @@ model AppointmentService {
   @@index([stylistId])
   @@index([stylistId, startTime, endTime])
   @@unique([appointmentId, sequence])
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  appointmentId String   @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  amountLkr Int
+  status    String   // pending | paid | failed
+  method    String?  // payhere
+  payherePaymentId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PendingPayment {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  salonId         String
+  date            DateTime
+  startTime       String
+  totalLkr        Float
+  bookingSnapshot Json
+  failed          Boolean      @default(false)
+  appointmentId   String?      @unique
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+  createdAt       DateTime     @default(now())
 }

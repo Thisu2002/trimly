@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
+import PayHere from "@payhere/payhere-mobilesdk-reactnative";
 import { API_BASE_URL } from "../config/api";
 import { colors } from "../theme/colors";
 
@@ -26,6 +27,45 @@ export default function BookingSummaryScreen({
 
   const total = selectedServices.reduce((sum, s) => sum + s.priceLkr, 0);
 
+  /**
+   * Poll /api/mobile/payment-status/:pendingPaymentId every 2 seconds.
+   * Resolves with the appointmentId once confirmed, or rejects on failure/timeout.
+   */
+  function pollPaymentStatus(pendingPaymentId: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const MAX_ATTEMPTS = 20; // 20 × 2s = 40 seconds max
+
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const res = await fetch(
+            `${API_BASE_URL}/api/mobile/payment-status/${pendingPaymentId}`
+          );
+          const data = await res.json();
+          console.log("Polling payment status:", data);
+
+          if (data.status === "confirmed") {
+            clearInterval(interval);
+            resolve(data.appointmentId);
+          } else if (data.status === "failed") {
+            clearInterval(interval);
+            reject(new Error("Payment was not completed."));
+          } else if (attempts >= MAX_ATTEMPTS) {
+            clearInterval(interval);
+            reject(new Error("Payment confirmation timed out. Please contact support if you were charged."));
+          }
+          // status === "pending" → keep polling
+        } catch (e) {
+          if (attempts >= MAX_ATTEMPTS) {
+            clearInterval(interval);
+            reject(e);
+          }
+        }
+      }, 2000);
+    });
+  }
+
   async function handleConfirm() {
     try {
       const serviceAssignments = selectedServices.map((service) => ({
@@ -34,11 +74,10 @@ export default function BookingSummaryScreen({
         sequence: service.sequence!,
       }));
 
-      const res = await fetch(`${API_BASE_URL}/api/mobile/appointments`, {
+      // Step 1: Initiate payment (creates PendingPayment, returns payment data)
+      const res = await fetch(`${API_BASE_URL}/api/mobile/initiate-payment`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idToken,
           salonId,
@@ -49,20 +88,49 @@ export default function BookingSummaryScreen({
       });
 
       const data = await res.json();
+      console.log("Payment Init Response:", data);
 
       if (!res.ok) {
-        throw new Error(data.error || "Booking failed");
+        throw new Error(data.error || "Payment init failed");
       }
 
-      Alert.alert("Success", "Appointment created successfully.", [
-        {
-          text: "OK",
-          onPress: () => navigation.popToTop(),
+      const { pendingPaymentId, paymentData } = data;
+
+      // Step 2: Launch PayHere popup
+      PayHere.startPayment(
+        paymentData,
+
+        // ✅ onSuccess — fired when user completes the payment form.
+        // Note: this does NOT mean payment is confirmed server-side yet.
+        // PayHere sends the real confirmation to notify_url asynchronously.
+        async (_paymentId: string) => {
+          try {
+            // Step 3: Poll until the server webhook has processed the payment
+            const appointmentId = await pollPaymentStatus(pendingPaymentId);
+            console.log("Payment confirmed for appointment", appointmentId);
+            navigation.navigate("PaymentSuccess", { appointmentId });
+          } catch (pollError: any) {
+            Alert.alert(
+              "Checking Payment",
+              pollError?.message ||
+                "We couldn't confirm your payment yet. Please check your bookings."
+            );
+          }
         },
-      ]);
+
+        // ❌ onError
+        (error: string) => {
+          Alert.alert("Payment Error", error);
+        },
+
+        // 🚪 onDismissed — user closed the popup without paying
+        () => {
+          console.log("Payment dismissed by user");
+        }
+      );
     } catch (error: any) {
       console.log(error);
-      Alert.alert("Booking failed", error?.message || "Could not create appointment.");
+      Alert.alert("Error", error?.message || "Something went wrong");
     }
   }
 

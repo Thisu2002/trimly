@@ -33,7 +33,6 @@ router.post("/style", async (req, res) => {
       (r: any) => r.recommendedStyles as string[],
     );
 
-    // Find styles by exact name OR partial keyword match for robustness
     const styles = await prisma.style.findMany({
       where: {
         name: {
@@ -45,7 +44,6 @@ router.post("/style", async (req, res) => {
 
     const styleIds = styles.map((s) => s.id);
 
-    // Include salon so the mobile app knows WHERE each service is offered
     const services = await prisma.service.findMany({
       where: {
         styleId: { in: styleIds },
@@ -68,7 +66,6 @@ router.post("/style", async (req, res) => {
       },
     });
 
-    // Group services by style name so the frontend can align them with recommendations
     const servicesByStyle: Record<string, typeof services> = {};
     for (const svc of services) {
       const styleName = svc.style?.name ?? "Unknown";

@@ -89,3 +89,14 @@ export type Recommendation = {
   reasons: string[];
   score: number;
 };
+
+// ── Hair profile ──────────────────────────────────────────────────────────────
+
+export type HairProfile = {
+  faceShape: string;
+  hairType: string;
+  hairLength: string;
+  styleGoal: string;
+  previousServices: string[];
+  detectionMethod?: "mirror" | "manual";
+};

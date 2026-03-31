@@ -61,7 +61,6 @@ router.post("/get", async (req, res) => {
     }
 
     const existing = user.adminSalon.businessHours;
-    //console.log("Existing hours for", user.adminSalon.name, ":", existing);
 
     const result = DAYS.map((day) => {
       const row = existing.find((h) => h.dayOfWeek === day);
@@ -75,7 +74,6 @@ router.post("/get", async (req, res) => {
         }
       );
     });
-    //console.log("Salon hours for", user.adminSalon.name, ":", result);
 
     return res.json({
       salonId: user.adminSalon.id,

@@ -8,10 +8,13 @@ import BookingServicesScreen from "../screens/BookingServicesScreen";
 import BookingDateTimeScreen from "../screens/BookingDateTimeScreen";
 import BookingStylistScreen from "../screens/BookingStylistScreen";
 import BookingSummaryScreen from "../screens/BookingSummaryScreen";
+//import PaymentScreen from "../screens/PaymentScreen";
+import PaymentSuccessScreen from "../screens/PaymentSuccessScreen";
 import AppointmentHistoryScreen from "../screens/AppointmentHistoryScreen";
 import StyleRecommendationScreen from "../screens/StyleRecommendationScreen";
+import MirrorScreen from "../screens/MirrorScreen";
 import { AuthUser } from "../types/auth";
-import { ServiceItem, StylistItem, Recommendation, MatchedService } from "../types/salon";
+import { ServiceItem, StylistItem } from "../types/salon";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -41,17 +44,15 @@ export type RootStackParamList = {
     idToken: string;
   };
   Appointments: undefined;
-  StyleRecommendation: {
-    recommendations: Recommendation[];
-    matchedServices: MatchedService[];
-    profile: {
-      faceShape: string;
-      hairType: string;
-      hairLength: string;
-      styleGoal: string;
-      previousServices: string[];
-    };
+  // Payment: {
+  //   paymentData: any;
+  //   appointmentId: string;
+  // };
+  PaymentSuccess: {
+    appointmentId: string;
   };
+  StyleRecommendation: undefined;
+  Mirror: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -78,9 +79,12 @@ export default function RootNavigator({
               {({ navigation }) => (
                 <HomeScreen
                   user={user}
+                  idToken={idToken}
                   onLogout={onLogout}
                   onBrowseSalons={() => navigation.navigate("SalonList")}
-                  onBrowseAppointments={() => navigation.navigate("Appointments")}
+                  onBrowseAppointments={() =>
+                    navigation.navigate("Appointments")
+                  }
                 />
               )}
             </Stack.Screen>
@@ -103,13 +107,28 @@ export default function RootNavigator({
                 <BookingSummaryScreen {...props} idToken={idToken!} />
               )}
             </Stack.Screen>
+            {/* <Stack.Screen name="Payment" component={PaymentScreen} /> */}
+            <Stack.Screen
+              name="PaymentSuccess"
+              component={PaymentSuccessScreen}
+            />
             <Stack.Screen name="Appointments">
               {(props) => <AppointmentHistoryScreen {...props} user={user} />}
             </Stack.Screen>
-            <Stack.Screen
-              name="StyleRecommendation"
-              component={StyleRecommendationScreen}
-            />
+            <Stack.Screen name="StyleRecommendation">
+              {(props) => (
+                <StyleRecommendationScreen {...props} userSub={user?.sub} />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Mirror">
+              {(props) => (
+                <MirrorScreen
+                  {...props}
+                  idToken={idToken!}
+                  userSub={user?.sub}
+                />
+              )}
+            </Stack.Screen>
           </>
         ) : (
           <Stack.Screen name="Login">

@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,11 +9,15 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useEffect, useState } from "react";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { colors } from "../theme/colors";
-import { MatchedService, Recommendation } from "../types/salon";
+import { HairProfile, MatchedService, Recommendation } from "../types/salon";
+import { API_BASE_URL } from "../config/api";
 
-type Props = NativeStackScreenProps<RootStackParamList, "StyleRecommendation">;
+type Props = NativeStackScreenProps<RootStackParamList, "StyleRecommendation">& {
+  userSub: string | undefined;
+};
 
 const SCORE_MAX = 11;
 const MAX_SALONS = 5;
@@ -49,8 +54,57 @@ function groupBySalon(services: MatchedService[]): SalonGroup[] {
   return Array.from(map.values()).slice(0, MAX_SALONS);
 }
 
-export default function StyleRecommendationScreen({ route, navigation }: Props) {
-  const { recommendations, matchedServices, profile } = route.params;
+export default function StyleRecommendationScreen({ navigation, userSub }: Props) {
+  const [loading, setLoading]               = useState(true);
+  const [error, setError]                   = useState<string | null>(null);
+  const [profile, setProfile]               = useState<HairProfile | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [matchedServices, setMatchedServices] = useState<MatchedService[]>([]);
+
+  useEffect(() => {
+    fetchAll();
+  }, []);
+
+  async function fetchAll() {
+    setLoading(true);
+    setError(null);
+    try {
+      const profileRes = await fetch(`${API_BASE_URL}/api/hair-profile/${userSub}`);
+
+      if (profileRes.status === 404) {
+        navigation.replace("Mirror");
+        return;
+      }
+
+      if (!profileRes.ok) throw new Error(`Profile fetch failed: ${profileRes.status}`);
+
+      const savedProfile: HairProfile = await profileRes.json();
+      setProfile(savedProfile);
+
+      const recRes = await fetch(`${API_BASE_URL}/recommendation/style`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          faceShape:        savedProfile.faceShape,
+          hairType:         savedProfile.hairType,
+          hairLength:       savedProfile.hairLength,
+          styleGoal:        savedProfile.styleGoal,
+          previousServices: savedProfile.previousServices ?? [],
+        }),
+      });
+
+      if (!recRes.ok) throw new Error(`Recommendation fetch failed: ${recRes.status}`);
+
+      const data = await recRes.json();
+      setRecommendations(data.ai?.recommendations ?? []);
+      setMatchedServices(data.matchedServices ?? []);
+    } catch (err: any) {
+      console.error(err);
+      setError("Could not load recommendations. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function servicesForRec(rec: Recommendation): MatchedService[] {
     return matchedServices.filter((svc) =>
@@ -60,6 +114,50 @@ export default function StyleRecommendationScreen({ route, navigation }: Props) 
     );
   }
 
+  // ── Loading ─────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientLeft, colors.gradientRight]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 2, y: 0.5 }}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.centred}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Finding your best styles…</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  // ── Error ───────────────────────────────────────────────────────────────────
+  if (error) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientLeft, colors.gradientRight]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 2, y: 0.5 }}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.centred}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Pressable style={styles.retryBtn} onPress={fetchAll}>
+              <Text style={styles.retryBtnText}>Try again</Text>
+            </Pressable>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backBtnCentred}>
+              <Text style={styles.backText}>← Go back</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
+
+  // ── Results ─────────────────────────────────────────────────────────────────
   return (
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
@@ -76,16 +174,27 @@ export default function StyleRecommendationScreen({ route, navigation }: Props) 
 
             <Text style={styles.heading}>Style Recommendations</Text>
 
-            <View style={styles.profilePill}>
-              <Text style={styles.profilePillText}>
-                {profile.faceShape} face · {profile.hairType} · {profile.hairLength} ·{" "}
-                {profile.styleGoal.replace("_", " ")}
-              </Text>
-            </View>
+            {profile && (
+              <View style={styles.profileRow}>
+                <View style={styles.profilePill}>
+                  <Text style={styles.profilePillText}>
+                    {profile.faceShape} face · {profile.hairType} · {profile.hairLength} ·{" "}
+                    {profile.styleGoal.replace("_", " ")}
+                  </Text>
+                </View>
+                {/* Let user update their profile via Mirror */}
+                <Pressable
+                  onPress={() => navigation.navigate("Mirror")}
+                  style={styles.editProfileBtn}
+                >
+                  <Text style={styles.editProfileText}>Edit profile</Text>
+                </Pressable>
+              </View>
+            )}
 
             {recommendations.length === 0 && (
               <Text style={styles.empty}>
-                No recommendations found for your profile. Try adjusting your inputs.
+                No recommendations found for your profile. Try updating it.
               </Text>
             )}
 
@@ -136,7 +245,6 @@ export default function StyleRecommendationScreen({ route, navigation }: Props) 
                           }
                         >
                           <View style={styles.salonAccent} />
-
                           <View style={styles.salonLeft}>
                             <View style={styles.salonNameRow}>
                               <View style={styles.salonIndexBadge}>
@@ -146,13 +254,11 @@ export default function StyleRecommendationScreen({ route, navigation }: Props) 
                                 {group.salonName}
                               </Text>
                             </View>
-
                             {group.salonAddress ? (
                               <Text style={styles.salonAddress} numberOfLines={2}>
                                 📍 {group.salonAddress}
                               </Text>
                             ) : null}
-
                             <View style={styles.servicePills}>
                               {group.services.map((svc) => (
                                 <View key={svc.id} style={styles.servicePill}>
@@ -161,7 +267,6 @@ export default function StyleRecommendationScreen({ route, navigation }: Props) 
                               ))}
                             </View>
                           </View>
-
                           <Text style={styles.salonArrow}>›</Text>
                         </Pressable>
                       ))}
@@ -190,6 +295,18 @@ const styles = StyleSheet.create({
     padding: 18,
     minHeight: "100%",
   },
+  centred: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
+  loadingText: { marginTop: 14, fontSize: 14, color: colors.textSoft },
+  errorText: { fontSize: 15, color: colors.text, textAlign: "center", marginBottom: 20 },
+  retryBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    marginBottom: 12,
+  },
+  retryBtnText: { color: colors.white, fontWeight: "700" },
+  backBtnCentred: { marginTop: 4 },
   backBtn: { marginBottom: 16 },
   backText: { color: colors.primary, fontWeight: "700", fontSize: 15 },
   heading: {
@@ -198,25 +315,36 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 12,
   },
+
+  // Profile row
+  profileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    gap: 10,
+    flexWrap: "wrap",
+  },
   profilePill: {
     backgroundColor: colors.card,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 7,
-    alignSelf: "flex-start",
-    marginBottom: 20,
   },
   profilePillText: {
     fontSize: 12,
     color: colors.textSoft,
     textTransform: "capitalize",
   },
-  empty: {
-    color: colors.textSoft,
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 40,
+  editProfileBtn: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
+  editProfileText: { fontSize: 12, color: colors.primary, fontWeight: "700" },
+
+  empty: { color: colors.textSoft, fontSize: 14, textAlign: "center", marginTop: 40 },
 
   // Recommendation card
   recCard: {
@@ -242,19 +370,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     paddingRight: 44,
   },
-  recDesc: {
-    fontSize: 13,
-    color: colors.textSoft,
-    lineHeight: 19,
-    marginBottom: 14,
-  },
+  recDesc: { fontSize: 13, color: colors.textSoft, lineHeight: 19, marginBottom: 14 },
 
-  // Score
-  scoreRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
+  scoreRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
   scoreLabel: { fontSize: 12, color: colors.textSoft },
   scoreValue: { fontSize: 12, fontWeight: "700", color: colors.primary },
   scoreBarTrack: {
@@ -264,19 +382,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     overflow: "hidden",
   },
-  scoreBarFill: {
-    height: "100%",
-    backgroundColor: colors.primary,
-    borderRadius: 3,
-  },
+  scoreBarFill: { height: "100%", backgroundColor: colors.primary, borderRadius: 3 },
 
-  // Reasons
-  reasonsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginBottom: 16,
-  },
+  reasonsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 16 },
   reasonChip: {
     backgroundColor: colors.page,
     borderRadius: 10,
@@ -285,7 +393,6 @@ const styles = StyleSheet.create({
   },
   reasonText: { fontSize: 11, color: colors.textSoft },
 
-  // Salons
   salonsSection: { marginTop: 4 },
   salonsSectionTitle: {
     fontSize: 13,
@@ -296,24 +403,19 @@ const styles = StyleSheet.create({
   salonRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgb(10, 16, 28)",
+    backgroundColor: colors.page,
     borderRadius: 14,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: "hidden",
-    // shadow for iOS
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
-    // elevation for Android
     elevation: 2,
   },
-  salonRowPressed: {
-    opacity: 0.75,
-    borderColor: colors.primary,
-  },
+  salonRowPressed: { opacity: 0.75, borderColor: colors.primary },
   salonAccent: {
     width: 4,
     alignSelf: "stretch",
@@ -322,12 +424,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 14,
   },
   salonLeft: { flex: 1, padding: 12, marginRight: 4 },
-  salonNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-    gap: 8,
-  },
+  salonNameRow: { flexDirection: "row", alignItems: "center", marginBottom: 4, gap: 8 },
   salonIndexBadge: {
     width: 20,
     height: 20,
@@ -336,49 +433,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  salonIndexText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: colors.white,
-  },
-  salonName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.text,
-    flex: 1,
-  },
-  salonAddress: {
-    fontSize: 12,
-    color: colors.textSoft,
-    marginBottom: 8,
-    marginLeft: 28, // align under name, past the badge
-  },
-  servicePills: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 5,
-    marginLeft: 28,
-  },
+  salonIndexText: { fontSize: 11, fontWeight: "800", color: colors.white },
+  salonName: { fontSize: 14, fontWeight: "700", color: colors.text, flex: 1 },
+  salonAddress: { fontSize: 12, color: colors.textSoft, marginBottom: 8, marginLeft: 28 },
+  servicePills: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginLeft: 28 },
   servicePill: {
     backgroundColor: colors.card,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  servicePillText: {
-    fontSize: 11,
-    color: colors.textSoft,
-  },
-  salonArrow: {
-    fontSize: 24,
-    color: colors.primary,
-    fontWeight: "300",
-    paddingRight: 14,
-  },
-  noServices: {
-    fontSize: 12,
-    color: colors.textSoft,
-    marginTop: 8,
-    fontStyle: "italic",
-  },
+  servicePillText: { fontSize: 11, color: colors.textSoft },
+  salonArrow: { fontSize: 24, color: colors.primary, fontWeight: "300", paddingRight: 14 },
+  noServices: { fontSize: 12, color: colors.textSoft, marginTop: 8, fontStyle: "italic" },
 });

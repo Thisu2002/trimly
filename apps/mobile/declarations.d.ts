@@ -1,0 +1,1 @@
+declare module '@payhere/payhere-mobilesdk-reactnative';
