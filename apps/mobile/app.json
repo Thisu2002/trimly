@@ -9,7 +9,15 @@
         {
           "domain": "trimly.us.auth0.com"
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Trimly to access your camera.",
+          "enableFrameProcessors": true
+        }
+      ],
+      "expo-asset"
     ],
     "version": "1.0.0",
     "orientation": "portrait",

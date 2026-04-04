@@ -15,6 +15,8 @@ import StyleRecommendationScreen from "../screens/StyleRecommendationScreen";
 import MirrorScreen from "../screens/MirrorScreen";
 import { AuthUser } from "../types/auth";
 import { ServiceItem, StylistItem } from "../types/salon";
+import VirtualTryOnScreen from "../screens/VirtualTryOnScreen";
+import FaceScanScreen from "../screens/FaceScanScreen";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -52,7 +54,13 @@ export type RootStackParamList = {
     appointmentId: string;
   };
   StyleRecommendation: undefined;
-  Mirror: undefined;
+  Mirror: { detectedFaceShape?: string; landmarks?: number[] };
+  FaceScan: undefined;
+  VirtualTryOn: {
+    faceShape: string;
+    landmarks: number[];
+    photoUri: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -126,6 +134,30 @@ export default function RootNavigator({
                   {...props}
                   idToken={idToken!}
                   userSub={user?.sub}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="FaceScan">
+              {(props) => (
+                <FaceScanScreen
+                  {...props}
+                  onScanComplete={(faceShape, landmarks, photoUri) => {
+                    props.navigation.navigate("VirtualTryOn", {
+                      faceShape,
+                      landmarks,
+                      photoUri,
+                    });
+                  }}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="VirtualTryOn">
+              {(props) => (
+                <VirtualTryOnScreen
+                  {...props}
+                  faceShape={props.route.params.faceShape}
+                  landmarks={props.route.params.landmarks}
+                  photoUri={props.route.params.photoUri}
                 />
               )}
             </Stack.Screen>

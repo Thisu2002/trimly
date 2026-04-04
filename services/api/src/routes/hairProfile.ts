@@ -55,6 +55,7 @@ router.put("/:userSub", async (req: any, res) => {
       styleGoal,
       previousServices,
       detectionMethod,
+      faceLandmarks,
     } = req.body;
 
     const profile = await prisma.userHairProfile.upsert({
@@ -67,6 +68,7 @@ router.put("/:userSub", async (req: any, res) => {
         styleGoal,
         previousServices: previousServices ?? [],
         detectionMethod: detectionMethod ?? "manual",
+        faceLandmarks: faceLandmarks ?? null,
       },
       update: {
         ...(faceShape && { faceShape }),
@@ -75,6 +77,7 @@ router.put("/:userSub", async (req: any, res) => {
         ...(styleGoal && { styleGoal }),
         ...(previousServices && { previousServices }),
         ...(detectionMethod && { detectionMethod }),
+        ...(faceLandmarks && { faceLandmarks }),
       },
     });
 

@@ -54,15 +54,22 @@ type Props = NativeStackScreenProps<RootStackParamList, "Mirror"> & {
 
 type Step = "camera" | "questionnaire" | "saving";
 
-const FACE_SHAPES = ["oval", "round", "square", "heart", "diamond", "oblong"] as const;
-const HAIR_TYPES  = ["straight", "wavy", "curly", "coily"] as const;
+const FACE_SHAPES = [
+  "oval",
+  "round",
+  "square",
+  "heart",
+  "diamond",
+  "oblong",
+] as const;
+const HAIR_TYPES = ["straight", "wavy", "curly", "coily"] as const;
 const HAIR_LENGTHS = ["short", "medium", "long"] as const;
 const STYLE_GOALS = [
   { value: "low_maintenance", label: "Low Maintenance" },
-  { value: "trendy",          label: "Trendy" },
-  { value: "professional",    label: "Professional" },
-  { value: "volume",          label: "More Volume" },
-  { value: "repair",          label: "Repair & Restore" },
+  { value: "trendy", label: "Trendy" },
+  { value: "professional", label: "Professional" },
+  { value: "volume", label: "More Volume" },
+  { value: "repair", label: "Repair & Restore" },
 ] as const;
 
 function OptionRow<T extends string>({
@@ -98,14 +105,16 @@ function OptionRow<T extends string>({
   );
 }
 
-export default function MirrorScreen({ navigation, idToken, userSub }: Props) {
+export default function MirrorScreen({ route, navigation, idToken, userSub }: Props) {
+  const { detectedFaceShape, landmarks } = route.params ?? {};
+
   const [step, setStep] = useState<Step>("camera");
 
   // Profile fields
-  const [faceShape, setFaceShape]   = useState<string | null>(null);
-  const [hairType, setHairType]     = useState<string | null>(null);
+  const [faceShape, setFaceShape] = useState<string | null>(detectedFaceShape ?? null);
+  const [hairType, setHairType] = useState<string | null>(null);
   const [hairLength, setHairLength] = useState<string | null>(null);
-  const [styleGoal, setStyleGoal]   = useState<string | null>(null);
+  const [styleGoal, setStyleGoal] = useState<string | null>(null);
 
   // ── CAMERA STEP ─────────────────────────────────────────────────────────────
   // When you integrate react-native-vision-camera:
@@ -133,7 +142,10 @@ export default function MirrorScreen({ navigation, idToken, userSub }: Props) {
 
   async function handleSaveAndRecommend() {
     if (!faceShape || !hairType || !hairLength || !styleGoal) {
-      Alert.alert("Almost there", "Please fill in all fields before continuing.");
+      Alert.alert(
+        "Almost there",
+        "Please fill in all fields before continuing.",
+      );
       return;
     }
 
@@ -144,8 +156,9 @@ export default function MirrorScreen({ navigation, idToken, userSub }: Props) {
       hairType,
       hairLength,
       styleGoal,
-      previousServices: [], // populated server-side from appointment history
-      detectionMethod: "manual", // change to "mirror" when camera detection is live
+      previousServices: [],
+      detectionMethod: landmarks ? "scan" : "manual",
+      faceLandmarks: landmarks ?? null,
     };
 
     try {
@@ -188,7 +201,6 @@ export default function MirrorScreen({ navigation, idToken, userSub }: Props) {
     );
   }
 
-  // ── CAMERA STEP (scaffold) ──────────────────────────────────────────────────
   if (step === "camera") {
     return (
       <LinearGradient
@@ -199,42 +211,40 @@ export default function MirrorScreen({ navigation, idToken, userSub }: Props) {
       >
         <SafeAreaView style={styles.safe}>
           <View style={styles.cameraPage}>
-            <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              style={styles.backBtn}
+            >
               <Text style={styles.backText}>← Back</Text>
             </Pressable>
 
             <Text style={styles.heading}>Virtual Mirror</Text>
+            <Text style={styles.subheading}>
+              Scan your face to auto-detect your face shape and try on virtual
+              hairstyles.
+            </Text>
 
-            {/* ── Camera placeholder ─────────────────────────────────────────
-                Replace this View with <Camera> from react-native-vision-camera
-                once installed. The frame processor will detect face shape and
-                draw Skia hair overlays live on the feed.
-            ─────────────────────────────────────────────────────────────────── */}
-            <View style={styles.cameraPlaceholder}>
-              <Text style={styles.cameraEmoji}>🪞</Text>
-              <Text style={styles.cameraPlaceholderTitle}>Camera coming soon</Text>
+            {/* Face scan CTA */}
+            <Pressable
+              style={styles.scanCard}
+              onPress={() => navigation.navigate("FaceScan")}
+            >
+              <Text style={styles.cameraEmoji}>🫥</Text>
+              <Text style={styles.cameraPlaceholderTitle}>Scan My Face</Text>
               <Text style={styles.cameraPlaceholderSub}>
-                Install react-native-vision-camera +{"\n"}
-                @shopify/react-native-skia to enable live{"\n"}
-                hair style try-on and face shape detection.
+                Turn left · center · right{"\n"}
+                We'll detect your face shape automatically{"\n"}
+                and let you try on styles in 3D.
               </Text>
-            </View>
+            </Pressable>
 
-            {/* When face shape is auto-detected, show it here */}
-            {faceShape && (
-              <View style={styles.detectedPill}>
-                <Text style={styles.detectedText}>
-                  Detected face shape: <Text style={{ fontWeight: "800" }}>{faceShape}</Text>
-                </Text>
-              </View>
-            )}
-
+            {/* Manual skip */}
             <Pressable
               style={styles.primaryButton}
               onPress={() => setStep("questionnaire")}
             >
               <Text style={styles.primaryButtonText}>
-                {faceShape ? "Continue to questionnaire →" : "Skip to questionnaire →"}
+                Skip — fill in manually instead →
               </Text>
             </Pressable>
           </View>
@@ -245,7 +255,7 @@ export default function MirrorScreen({ navigation, idToken, userSub }: Props) {
 
   // ── QUESTIONNAIRE STEP ──────────────────────────────────────────────────────
   const goalLabelMap = Object.fromEntries(
-    STYLE_GOALS.map((g) => [g.value, g.label])
+    STYLE_GOALS.map((g) => [g.value, g.label]),
   ) as Record<string, string>;
 
   const ready = faceShape && hairType && hairLength && styleGoal;
@@ -289,14 +299,19 @@ export default function MirrorScreen({ navigation, idToken, userSub }: Props) {
             />
             <OptionRow
               label="Style goal"
-              options={STYLE_GOALS.map((g) => g.value) as unknown as readonly string[]}
+              options={
+                STYLE_GOALS.map((g) => g.value) as unknown as readonly string[]
+              }
               selected={styleGoal}
               onSelect={setStyleGoal}
               labelMap={goalLabelMap as any}
             />
 
             <Pressable
-              style={[styles.primaryButton, !ready && styles.primaryButtonDisabled]}
+              style={[
+                styles.primaryButton,
+                !ready && styles.primaryButtonDisabled,
+              ]}
               onPress={handleSaveAndRecommend}
               disabled={!ready}
             >
@@ -385,6 +400,18 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: colors.white, fontSize: 15, fontWeight: "700" },
 
   // Camera placeholder
+  scanCard: {
+    flex: 1,
+    margin: 10,
+    borderRadius: 24,
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    marginBottom: 20,
+  },
   cameraPage: {
     flex: 1,
     backgroundColor: colors.page,

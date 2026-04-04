@@ -75,12 +75,10 @@ model UserHairProfile {
   hairType   String?  // straight | wavy | curly | coily
   hairLength String?  // short | medium | long
   styleGoal  String?  // low_maintenance | trendy | professional | volume | repair
-
-  // Derived from appointment history — updated each time recommendations are fetched
   previousServices String[] @default([])
-
-  // How faceShape was detected
   detectionMethod  String?  // "mirror" | "manual"
+  
+  faceLandmarks Json?       // stores number[] directly
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -98,5 +98,6 @@ export type HairProfile = {
   hairLength: string;
   styleGoal: string;
   previousServices: string[];
-  detectionMethod?: "mirror" | "manual";
+  detectionMethod?: string;
+  faceLandmarks?: number[] | null;
 };
