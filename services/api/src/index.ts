@@ -16,9 +16,15 @@ import hairProfileRoutes from "./routes/hairProfile";
 
 const app = express();
 
+// app.use(
+//   cors({
+//     origin: ["http://localhost:3000", "https://your-vercel-app.vercel.app"],
+//     credentials: true,
+//   })
+// );
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://your-vercel-app.vercel.app"],
+    origin: true,
     credentials: true,
   })
 );
@@ -85,7 +91,12 @@ app.post("/auth/me", async (req, res) => {
   }
 });
 
+// const port = Number(process.env.PORT || 4000);
+// app.listen(port, () =>
+//   console.log(`API listening on http://localhost:${port}`)
+// );
+
 const port = Number(process.env.PORT || 4000);
-app.listen(port, () =>
-  console.log(`API listening on http://localhost:${port}`)
+app.listen(port, "0.0.0.0", () =>
+  console.log(`API listening on http://0.0.0.0:${port}`)
 );
