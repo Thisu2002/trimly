@@ -2,38 +2,36 @@ export interface HairStyle3D {
   id: string;
   name: string;
   category: "short" | "medium" | "long";
+  gender: "female" | "male" | "unisex";
   suitableFaceShapes: string[];
   description: string;
   overlayShape: "top_cap" | "full_frame" | "long_frame" | "updo";
   lengthFrac: number;
   assetUri: any;
-  // Per-asset tuning — fractions of faceWidth/faceHeight
   asset: {
-    // How far above the forehead top the hair crown sits
-    // negative = move up, positive = move down
-    offsetY: number;
-    // Horizontal shift — negative = left, positive = right
-    offsetX: number;
-    // Width of asset relative to faceWidth (1.0 = same as face)
+    offsetY: number;   // fraction of faceHeight — negative = move up
+    offsetX: number;   // fraction of faceWidth  — negative = left
     widthScale: number;
-    // Height of asset relative to faceHeight
     heightScale: number;
   };
 }
 
 export const HAIR_STYLES_3D: HairStyle3D[] = [
+
+  // ── FEMALE ──────────────────────────────────────────────────────────────────
+
   {
     id: "pixie",
     name: "Pixie Cut",
     category: "short",
+    gender: "female",
     suitableFaceShapes: ["oval", "heart", "diamond"],
     description: "Short & bold — frames the face beautifully.",
     overlayShape: "top_cap",
     lengthFrac: 0.08,
     assetUri: require("../../assets/hair/pixie.png"),
     asset: {
-      // Pixie is square, centred — sits just above forehead
-      offsetY: -0.35,   // pull up slightly above forehead
+      offsetY: -0.35,
       offsetX: 0.15,
       widthScale: 2.8,
       heightScale: 1.5,
@@ -43,16 +41,16 @@ export const HAIR_STYLES_3D: HairStyle3D[] = [
     id: "bob",
     name: "Classic Bob",
     category: "short",
+    gender: "female",
     suitableFaceShapes: ["oval", "square", "round"],
     description: "Timeless chin-length cut with clean lines.",
     overlayShape: "full_frame",
     lengthFrac: 0.95,
     assetUri: require("../../assets/hair/bob.png"),
     asset: {
-      // Bob sits high in the PNG — push down relative to forehead
       offsetY: -0.45,
       offsetX: 0.15,
-      widthScale: 4,
+      widthScale: 4.0,
       heightScale: 1.5,
     },
   },
@@ -60,23 +58,25 @@ export const HAIR_STYLES_3D: HairStyle3D[] = [
     id: "lob",
     name: "Long Bob (Lob)",
     category: "medium",
+    gender: "female",
     suitableFaceShapes: ["oval", "round", "heart", "square"],
     description: "Versatile length — works with most face shapes.",
     overlayShape: "full_frame",
     lengthFrac: 1.15,
     assetUri: require("../../assets/hair/lob.png"),
     asset: {
-      // Lob is angled/tilted in PNG — shift left to compensate
-      offsetY: -0.65,
-      offsetX: 0.15,   // shift left since hair is right-weighted
-      widthScale: 3.5,
-      heightScale: 1.6,
+      // lob PNG is angled — shift right to compensate tilt
+      offsetY: -0.55,
+      offsetX: 0.22,
+      widthScale: 3.2,
+      heightScale: 1.5,
     },
   },
   {
     id: "layers",
     name: "Long Layers",
     category: "long",
+    gender: "female",
     suitableFaceShapes: ["oval", "square", "diamond", "oblong"],
     description: "Flowing layers with movement and volume.",
     overlayShape: "long_frame",
@@ -84,42 +84,109 @@ export const HAIR_STYLES_3D: HairStyle3D[] = [
     assetUri: require("../../assets/hair/layers.png"),
     asset: {
       // Layers PNG is tall — hair crown is ~25% from top of image
-      offsetY: -0.75,
+      offsetY: -0.88,
       offsetX: 0.15,
       widthScale: 4.5,
-      heightScale: 2.2,  // tall because hair goes well below chin
+      heightScale: 3.2,  // tall because hair goes well below chin
     },
   },
   {
     id: "curly_updo",
     name: "Curly Updo",
     category: "short",
+    gender: "female",
     suitableFaceShapes: ["round", "square", "oblong"],
     description: "Voluminous curls swept up for a chic look.",
     overlayShape: "updo",
     lengthFrac: 0.15,
-    assetUri: null, // add asset when available
-    asset: {
-      offsetY: -0.2,
-      offsetX: 0,
-      widthScale: 1.3,
-      heightScale: 0.8,
-    },
+    assetUri: null,
+    asset: { offsetY: -0.2, offsetX: 0, widthScale: 1.3, heightScale: 0.8 },
   },
   {
     id: "beachy_waves",
     name: "Beachy Waves",
     category: "long",
+    gender: "female",
     suitableFaceShapes: ["oval", "heart", "oblong"],
     description: "Relaxed, textured waves for an effortless look.",
     overlayShape: "long_frame",
     lengthFrac: 1.8,
-    assetUri: null, // add asset when available
+    assetUri: null,
+    asset: { offsetY: -0.2, offsetX: 0, widthScale: 1.5, heightScale: 2.0 },
+  },
+
+  // ── MALE ────────────────────────────────────────────────────────────────────
+
+  {
+    id: "male_slickback",
+    name: "Slick Back",
+    category: "short",
+    gender: "male",
+    suitableFaceShapes: ["oval", "square", "oblong", "diamond"],
+    description: "Clean, polished — swept back for a sharp look.",
+    overlayShape: "top_cap",
+    lengthFrac: 0.1,
+    assetUri: require("../../assets/hair/male_cut.png"),
     asset: {
-      offsetY: -0.2,
-      offsetX: 0,
-      widthScale: 1.5,
-      heightScale: 2.0,
+      // male_cut: pompadour, hair fills top ~60% of square image, centred
+      offsetY: -0.5,
+      offsetX: 0.0,
+      widthScale: 2.0,
+      heightScale: 1.1,
+    },
+  },
+  {
+    id: "male_swept",
+    name: "Side Swept",
+    category: "short",
+    gender: "male",
+    suitableFaceShapes: ["oval", "round", "heart"],
+    description: "Effortlessly stylish side-swept look.",
+    overlayShape: "top_cap",
+    lengthFrac: 0.1,
+    assetUri: require("../../assets/hair/male_cut2.png"),
+    asset: {
+      // male_cut2: side swept, hair heavy top-left — shift slightly right
+      offsetY: -0.48,
+      offsetX: 0.05,
+      widthScale: 2.1,
+      heightScale: 1.1,
+    },
+  },
+  {
+    id: "male_sidepart",
+    name: "Classic Side Part",
+    category: "short",
+    gender: "male",
+    suitableFaceShapes: ["oval", "square", "round", "oblong"],
+    description: "Timeless and professional side parted style.",
+    overlayShape: "top_cap",
+    lengthFrac: 0.1,
+    assetUri: require("../../assets/hair/male_cut3.png"),
+    asset: {
+      // male_cut3: compact, centred, fills top half of image
+      offsetY: -0.45,
+      offsetX: 0.0,
+      widthScale: 2.0,
+      heightScale: 1.0,
+    },
+  },
+  {
+    id: "male_voluminous",
+    name: "Voluminous Sweep",
+    category: "medium",
+    gender: "male",
+    suitableFaceShapes: ["oval", "diamond", "heart", "oblong"],
+    description: "Bold and textured — full volume swept style.",
+    overlayShape: "top_cap",
+    lengthFrac: 0.12,
+    assetUri: require("../../assets/hair/male_cut4.png"),
+    asset: {
+      // male_cut4: big voluminous top, centred, fills ~55% of image height
+      offsetY: -0.52,
+      offsetX: 0.0,
+      widthScale: 1.8,
+      heightScale: 1.2,
     },
   },
 ];
@@ -127,6 +194,12 @@ export const HAIR_STYLES_3D: HairStyle3D[] = [
 export function getStylesForFaceShape(faceShape: string): HairStyle3D[] {
   return HAIR_STYLES_3D.filter((s) =>
     s.suitableFaceShapes.includes(faceShape)
+  );
+}
+
+export function getStylesForGender(gender: "male" | "female" | "unisex"): HairStyle3D[] {
+  return HAIR_STYLES_3D.filter(
+    (s) => s.gender === gender || s.gender === "unisex"
   );
 }
 

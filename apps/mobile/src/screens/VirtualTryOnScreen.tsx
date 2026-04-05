@@ -33,39 +33,21 @@ type Props = NativeStackScreenProps<RootStackParamList, "VirtualTryOn"> & {
   photoUri: string;
 };
 
-const HAIR_COLORS = [
-  { label: "Black",  hex: "#1a0a00" },
-  { label: "Brown",  hex: "#6b4c3b" },
-  { label: "Blonde", hex: "#c8a45a" },
-  { label: "Red",    hex: "#9b3a2a" },
-  { label: "Auburn", hex: "#7d3522" },
-  { label: "Grey",   hex: "#8a8a8a" },
-];
-
 const PREVIEW_W = Dimensions.get("window").width - 64;
 const PREVIEW_H = PREVIEW_W * (4 / 3);
 
-/**
- * Computes the absolute position + size of the hair PNG asset
- * using the per-style asset config + live face bounds.
- */
+type GenderFilter = "female" | "male";
+
 function computeHairAssetBounds(
   style: HairStyle3D,
   face: FaceBounds,
-  previewW: number,
 ) {
   const { offsetY, offsetX, widthScale, heightScale } = style.asset;
-
   const assetW = face.faceWidth  * widthScale;
   const assetH = face.faceHeight * heightScale;
-
-  // Centre horizontally over face centre, then apply offsetX
   const faceCentreX = face.faceLeft + face.faceWidth / 2;
   const left = faceCentreX - assetW / 2 + face.faceWidth * offsetX;
-
-  // Anchor top of asset relative to forehead top, then apply offsetY
-  const top = face.faceTop + face.faceHeight * offsetY;
-
+  const top  = face.faceTop + face.faceHeight * offsetY;
   return { top, left, width: assetW, height: assetH };
 }
 
@@ -75,24 +57,33 @@ export default function VirtualTryOnScreen({
   landmarks,
   photoUri,
 }: Props) {
-  const recommended = getStylesForFaceShape(faceShape);
-  const allStyles   = recommended.length > 0 ? recommended : HAIR_STYLES_3D;
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>("female");
+  const [showAll,      setShowAll]      = useState(false);
 
-  const [selected,  setSelected]  = useState<HairStyle3D>(allStyles[0]);
-  const [hairColor, setHairColor] = useState(HAIR_COLORS[0].hex);
-  const [showAll,   setShowAll]   = useState(false);
+  // Filter by gender first, then optionally by face shape
+  const byGender     = HAIR_STYLES_3D.filter((s) => s.gender === genderFilter);
+  const recommended  = byGender.filter((s) => s.suitableFaceShapes.includes(faceShape));
+  const displayStyles = showAll
+    ? byGender
+    : recommended.length > 0 ? recommended : byGender;
 
-  const displayStyles = showAll ? HAIR_STYLES_3D : allStyles;
+  const [selected, setSelected] = useState<HairStyle3D>(displayStyles[0]);
 
-  const faceBounds  = computeFaceBounds(landmarks, PREVIEW_W, PREVIEW_H);
-  const hairPath    = buildHairPath(landmarks, selected, PREVIEW_W, PREVIEW_H);
-  const hairAsset   = computeHairAssetBounds(selected, faceBounds, PREVIEW_W);
+  const faceBounds = computeFaceBounds(landmarks, PREVIEW_W, PREVIEW_H);
+  const hairPath   = buildHairPath(landmarks, selected, PREVIEW_W, PREVIEW_H);
+  const hairAsset  = computeHairAssetBounds(selected, faceBounds);
 
-  // Face oval clip — slightly padded so no skin is cut at edges
   const ovalTop    = faceBounds.faceTop    - PREVIEW_H * 0.01;
   const ovalLeft   = faceBounds.faceLeft   - PREVIEW_W * 0.01;
   const ovalWidth  = faceBounds.faceWidth  + PREVIEW_W * 0.02;
   const ovalHeight = faceBounds.faceHeight + PREVIEW_H * 0.02;
+
+  // When gender switches, reset selection to first in new list
+  function switchGender(g: GenderFilter) {
+    setGenderFilter(g);
+    const next = HAIR_STYLES_3D.filter((s) => s.gender === g);
+    if (next.length > 0) setSelected(next[0]);
+  }
 
   return (
     <LinearGradient
@@ -115,6 +106,26 @@ export default function VirtualTryOnScreen({
               <Text style={styles.accent}>{faceShape}</Text>
             </Text>
 
+            {/* ── Gender toggle ── */}
+            <View style={styles.genderRow}>
+              <Pressable
+                style={[styles.genderBtn, genderFilter === "female" && styles.genderBtnActive]}
+                onPress={() => switchGender("female")}
+              >
+                <Text style={[styles.genderBtnText, genderFilter === "female" && styles.genderBtnTextActive]}>
+                  ♀  Female
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.genderBtn, genderFilter === "male" && styles.genderBtnActive]}
+                onPress={() => switchGender("male")}
+              >
+                <Text style={[styles.genderBtnText, genderFilter === "male" && styles.genderBtnTextActive]}>
+                  ♂  Male
+                </Text>
+              </Pressable>
+            </View>
+
             {/* ── Photo + hair overlay ── */}
             <View style={[styles.photoWrap, { width: PREVIEW_W, height: PREVIEW_H }]}>
 
@@ -133,7 +144,7 @@ export default function VirtualTryOnScreen({
                 </View>
               )}
 
-              {/* Layer 2 — hair (PNG if asset exists, SVG fallback) */}
+              {/* Layer 2 — hair PNG or SVG fallback */}
               {selected.assetUri ? (
                 <Image
                   source={selected.assetUri}
@@ -147,8 +158,6 @@ export default function VirtualTryOnScreen({
                     },
                   ]}
                   resizeMode="stretch"
-                  // NOTE: tintColor flattens hair texture to a flat colour.
-                  // tintColor={hairColor}
                 />
               ) : (
                 <Svg
@@ -157,17 +166,12 @@ export default function VirtualTryOnScreen({
                   style={StyleSheet.absoluteFill}
                 >
                   <G opacity={0.9}>
-                    <Path
-                      d={hairPath}
-                      fill={hairColor}
-                      stroke={hairColor}
-                      strokeWidth={2}
-                    />
+                    <Path d={hairPath} fill="#4a3728" stroke="#4a3728" strokeWidth={2} />
                   </G>
                 </Svg>
               )}
 
-              {/* Layer 3 — face photo clipped to oval, sits ON TOP of hair */}
+              {/* Layer 3 — face photo clipped to oval, on top of hair */}
               {photoUri ? (
                 <View
                   style={[
@@ -200,28 +204,12 @@ export default function VirtualTryOnScreen({
               </View>
             </View>
 
-            {/* ── Hair colour picker ── */}
-            {/* <Text style={styles.sectionLabel}>Hair colour</Text>
-            <View style={styles.colorRow}>
-              {HAIR_COLORS.map((c) => (
-                <Pressable
-                  key={c.hex}
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: c.hex },
-                    hairColor === c.hex && styles.colorDotSelected,
-                  ]}
-                  onPress={() => setHairColor(c.hex)}
-                />
-              ))}
-            </View> */}
-
             {/* ── Style picker ── */}
             <View style={styles.sectionRow}>
               <Text style={styles.sectionLabel}>Styles</Text>
               <Pressable onPress={() => setShowAll((v) => !v)}>
                 <Text style={styles.toggleText}>
-                  {showAll ? "Show recommended" : "Show all styles"}
+                  {showAll ? "Recommended only" : "Show all"}
                 </Text>
               </Pressable>
             </View>
@@ -302,8 +290,36 @@ const styles = StyleSheet.create({
   backBtn:  { marginBottom: 16 },
   backText: { color: colors.primary, fontWeight: "700", fontSize: 15 },
   heading:  { fontSize: 26, fontWeight: "800", color: colors.text, marginBottom: 4 },
-  sub:      { fontSize: 14, color: colors.textSoft, marginBottom: 20 },
+  sub:      { fontSize: 14, color: colors.textSoft, marginBottom: 16 },
   accent:   { color: colors.primary, fontWeight: "700", textTransform: "capitalize" },
+
+  // Gender toggle
+  genderRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 20,
+  },
+  genderBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: "center",
+  },
+  genderBtnActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  genderBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.textSoft,
+  },
+  genderBtnTextActive: {
+    color: colors.white,
+  },
 
   photoWrap: {
     alignSelf: "center",
@@ -351,13 +367,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   toggleText: { fontSize: 12, color: colors.primary, fontWeight: "700" },
-
-  colorRow: { flexDirection: "row", gap: 10, marginBottom: 22 },
-  colorDot: {
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 2, borderColor: "transparent",
-  },
-  colorDotSelected: { borderColor: colors.primary },
 
   styleScroll: { gap: 10, paddingBottom: 4, marginBottom: 20 },
   styleChip: {

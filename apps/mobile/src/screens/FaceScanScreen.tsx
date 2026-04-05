@@ -45,7 +45,7 @@ const STEP_CONFIG: Record<
 > = {
   center: {
     label: "Step 1 of 3",
-    instruction: "Look straight ahead and hold still",
+    instruction: "Look straight ahead and capture pose",
     emoji: "😐",
   },
   left: {
