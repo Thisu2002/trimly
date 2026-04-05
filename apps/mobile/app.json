@@ -13,8 +13,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Trimly to access your camera.",
-          "enableFrameProcessors": true
+          "cameraPermission": "Allow Trimly to access your camera."
         }
       ],
       "expo-asset"
@@ -37,8 +36,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
       "package": "com.trimly.mobile",
       "permissions": [
         "android.permission.CAMERA",
