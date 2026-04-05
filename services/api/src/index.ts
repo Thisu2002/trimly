@@ -16,18 +16,18 @@ import hairProfileRoutes from "./routes/hairProfile";
 
 const app = express();
 
-// app.use(
-//   cors({
-//     origin: ["http://localhost:3000", "https://your-vercel-app.vercel.app"],
-//     credentials: true,
-//   })
-// );
 app.use(
   cors({
-    origin: true,
+    origin: ["http://localhost:3000", "https://trimly-web-five.vercel.app/"],
     credentials: true,
   })
 );
+// app.use(
+//   cors({
+//     origin: true,
+//     credentials: true,
+//   })
+// );
 
 app.use((req, res, next) => {
   console.log(`→ ${req.method} ${req.path}`);
