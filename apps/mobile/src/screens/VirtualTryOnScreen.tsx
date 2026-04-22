@@ -1,8 +1,10 @@
 /**
  * VirtualTryOnScreen.tsx
+ * AI-powered hair try-on with 3 view tabs (front, left, right)
  */
 
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   Pressable,
@@ -14,76 +16,168 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useState } from "react";
-import Svg, { Path, G } from "react-native-svg";
+import { useState, useRef } from "react";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { colors } from "../theme/colors";
-import {
-  HAIR_STYLES_3D,
-  HairStyle3D,
-  FaceBounds,
-  getStylesForFaceShape,
-  buildHairPath,
-  computeFaceBounds,
-} from "../ar/hairStyles3D";
+import { API_BASE_URL } from "../config/api";
+import { HAIR_STYLES_3D, HairStyle3D } from "../ar/hairStyles3D";
 
 type Props = NativeStackScreenProps<RootStackParamList, "VirtualTryOn"> & {
   faceShape: string;
   landmarks: number[];
-  photoUri: string;
+  photos: { front: string; left: string; right: string };
 };
+
+type ViewTab = "front" | "left" | "right";
 
 const PREVIEW_W = Dimensions.get("window").width - 64;
 const PREVIEW_H = PREVIEW_W * (4 / 3);
 
-type GenderFilter = "female" | "male";
-
-function computeHairAssetBounds(
-  style: HairStyle3D,
-  face: FaceBounds,
-) {
-  const { offsetY, offsetX, widthScale, heightScale } = style.asset;
-  const assetW = face.faceWidth  * widthScale;
-  const assetH = face.faceHeight * heightScale;
-  const faceCentreX = face.faceLeft + face.faceWidth / 2;
-  const left = faceCentreX - assetW / 2 + face.faceWidth * offsetX;
-  const top  = face.faceTop + face.faceHeight * offsetY;
-  return { top, left, width: assetW, height: assetH };
-}
+type GeneratedImages = {
+  front?: string;
+  left?: string;
+  right?: string;
+};
 
 export default function VirtualTryOnScreen({
   navigation,
+  route,
   faceShape,
   landmarks,
-  photoUri,
 }: Props) {
-  const [genderFilter, setGenderFilter] = useState<GenderFilter>("female");
-  const [showAll,      setShowAll]      = useState(false);
+  const photos = route.params.photos;
+  //   const photos = {
+  //   front: "http://localhost:4000/uploads/test-front.jpg",
+  //   left:  "http://localhost:4000/uploads/test-left.jpg",
+  //   right: "http://localhost:4000/uploads/test-right.jpg",
+  // };
 
-  // Filter by gender first, then optionally by face shape
-  const byGender     = HAIR_STYLES_3D.filter((s) => s.gender === genderFilter);
-  const recommended  = byGender.filter((s) => s.suitableFaceShapes.includes(faceShape));
+  const [genderFilter, setGenderFilter] = useState<"female" | "male">("female");
+  const [activeView, setActiveView] = useState<ViewTab>("front");
+  const [selected, setSelected] = useState<HairStyle3D>(
+    HAIR_STYLES_3D.filter((s) => s.gender === "female")[0],
+  );
+  const [showAll, setShowAll] = useState(false);
+
+  // Cache generated images per styleId so we don't re-generate
+  const cache = useRef<Record<string, GeneratedImages>>({});
+  const [generated, setGenerated] = useState<GeneratedImages>({});
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const byGender = HAIR_STYLES_3D.filter((s) => s.gender === genderFilter);
+  const recommended = byGender.filter((s) =>
+    s.suitableFaceShapes.includes(faceShape),
+  );
   const displayStyles = showAll
     ? byGender
-    : recommended.length > 0 ? recommended : byGender;
+    : recommended.length > 0
+      ? recommended
+      : byGender;
 
-  const [selected, setSelected] = useState<HairStyle3D>(displayStyles[0]);
-
-  const faceBounds = computeFaceBounds(landmarks, PREVIEW_W, PREVIEW_H);
-  const hairPath   = buildHairPath(landmarks, selected, PREVIEW_W, PREVIEW_H);
-  const hairAsset  = computeHairAssetBounds(selected, faceBounds);
-
-  const ovalTop    = faceBounds.faceTop    - PREVIEW_H * 0.01;
-  const ovalLeft   = faceBounds.faceLeft   - PREVIEW_W * 0.01;
-  const ovalWidth  = faceBounds.faceWidth  + PREVIEW_W * 0.02;
-  const ovalHeight = faceBounds.faceHeight + PREVIEW_H * 0.02;
-
-  // When gender switches, reset selection to first in new list
-  function switchGender(g: GenderFilter) {
+  function switchGender(g: "female" | "male") {
     setGenderFilter(g);
     const next = HAIR_STYLES_3D.filter((s) => s.gender === g);
-    if (next.length > 0) setSelected(next[0]);
+    if (next.length > 0) selectStyle(next[0]);
   }
+
+  async function selectStyle(style: HairStyle3D) {
+    setSelected(style);
+    setError(null);
+
+    // Use cache if already generated
+    if (cache.current[style.id]) {
+      setGenerated(cache.current[style.id]);
+      return;
+    }
+
+    setGenerated({});
+    setGenerating(true);
+
+    try {
+      // Generate all 3 views in parallel
+      const [frontResult, leftResult, rightResult] = await Promise.all([
+        generateView(photos.front, style.id, "front", 0),
+        generateView(photos.left, style.id, "left", 1),
+        generateView(photos.right, style.id, "right", 2),
+      ]);
+
+      const result: GeneratedImages = {
+        front: frontResult,
+        left: leftResult,
+        right: rightResult,
+      };
+
+      cache.current[style.id] = result;
+      setGenerated(result);
+    } catch (e: any) {
+      setError("Generation failed. Check your connection and try again.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function generateView(
+    photoUri: string,
+    styleId: string,
+    view: ViewTab,
+    index: number, // ← add this
+  ): Promise<string> {
+    const base64 = await uriToBase64(photoUri);
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await fetch(`${API_BASE_URL}/api/hair-generate/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-request-index": String(index), // ← tells backend which slot this is
+        },
+        body: JSON.stringify({ photoBase64: base64, styleId }), // ← removed view
+      });
+
+      if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, 60000));
+        continue;
+      }
+      if (res.status === 503) {
+        await new Promise((r) => setTimeout(r, 25000));
+        continue;
+      }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      return data.imageUrl as string;
+    }
+
+    throw new Error("Generation failed after retries.");
+  }
+
+  async function uriToBase64(uri: string): Promise<string> {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // What to show in the preview for the active view tab
+  const activeOriginal = photos[activeView];
+  const activeGenerated = generated[activeView];
+
+  const VIEW_TABS: { key: ViewTab; label: string }[] = [
+    { key: "front", label: "Front" },
+    { key: "left", label: "Left" },
+    { key: "right", label: "Right" },
+  ];
 
   return (
     <LinearGradient
@@ -95,114 +189,153 @@ export default function VirtualTryOnScreen({
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.page}>
-
-            <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              style={styles.backBtn}
+            >
               <Text style={styles.backText}>← Back</Text>
             </Pressable>
 
             <Text style={styles.heading}>Virtual Try-On</Text>
             <Text style={styles.sub}>
-              Your face shape:{" "}
-              <Text style={styles.accent}>{faceShape}</Text>
+              Your face shape: <Text style={styles.accent}>{faceShape}</Text>
             </Text>
 
             {/* ── Gender toggle ── */}
             <View style={styles.genderRow}>
-              <Pressable
-                style={[styles.genderBtn, genderFilter === "female" && styles.genderBtnActive]}
-                onPress={() => switchGender("female")}
-              >
-                <Text style={[styles.genderBtnText, genderFilter === "female" && styles.genderBtnTextActive]}>
-                  ♀  Female
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.genderBtn, genderFilter === "male" && styles.genderBtnActive]}
-                onPress={() => switchGender("male")}
-              >
-                <Text style={[styles.genderBtnText, genderFilter === "male" && styles.genderBtnTextActive]}>
-                  ♂  Male
-                </Text>
-              </Pressable>
+              {(["female", "male"] as const).map((g) => (
+                <Pressable
+                  key={g}
+                  style={[
+                    styles.genderBtn,
+                    genderFilter === g && styles.genderBtnActive,
+                  ]}
+                  onPress={() => switchGender(g)}
+                >
+                  <Text
+                    style={[
+                      styles.genderBtnText,
+                      genderFilter === g && styles.genderBtnTextActive,
+                    ]}
+                  >
+                    {g === "female" ? "♀  Female" : "♂  Male"}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
 
-            {/* ── Photo + hair overlay ── */}
-            <View style={[styles.photoWrap, { width: PREVIEW_W, height: PREVIEW_H }]}>
+            {/* ── View tabs ── */}
+            <View style={styles.viewTabRow}>
+              {VIEW_TABS.map((tab) => (
+                <Pressable
+                  key={tab.key}
+                  style={[
+                    styles.viewTab,
+                    activeView === tab.key && styles.viewTabActive,
+                  ]}
+                  onPress={() => setActiveView(tab.key)}
+                >
+                  <Text
+                    style={[
+                      styles.viewTabText,
+                      activeView === tab.key && styles.viewTabTextActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
-              {/* Layer 1 — full photo background */}
-              {photoUri ? (
+            {/* ── Photo preview ── */}
+            <View
+              style={[
+                styles.photoWrap,
+                { width: PREVIEW_W, height: PREVIEW_H },
+              ]}
+            >
+              {/* Always show original as background */}
+              <Image
+                source={{ uri: activeOriginal }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="cover"
+              />
+
+              {/* AI generated result overlay once ready */}
+              {activeGenerated && !generating && (
                 <Image
-                  source={{ uri: photoUri }}
+                  source={{ uri: activeGenerated }}
                   style={StyleSheet.absoluteFill}
                   resizeMode="cover"
                 />
-              ) : (
-                <View style={[StyleSheet.absoluteFill, styles.photoPlaceholder]}>
-                  <Text style={{ color: colors.textSoft, fontSize: 13 }}>
-                    No photo captured
+              )}
+
+              {/* Loading overlay */}
+              {generating && (
+                <View style={styles.generatingOverlay}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={styles.generatingText}>
+                    Generating {activeView} view…
+                  </Text>
+                  <Text style={styles.generatingHint}>
+                    Generating all 3 views — takes ~15s
                   </Text>
                 </View>
               )}
 
-              {/* Layer 2 — hair PNG or SVG fallback */}
-              {selected.assetUri ? (
-                <Image
-                  source={selected.assetUri}
-                  style={[
-                    styles.hairPng,
-                    {
-                      top:    hairAsset.top,
-                      left:   hairAsset.left,
-                      width:  hairAsset.width,
-                      height: hairAsset.height,
-                    },
-                  ]}
-                  resizeMode="stretch"
-                />
-              ) : (
-                <Svg
-                  width={PREVIEW_W}
-                  height={PREVIEW_H}
-                  style={StyleSheet.absoluteFill}
-                >
-                  <G opacity={0.9}>
-                    <Path d={hairPath} fill="#4a3728" stroke="#4a3728" strokeWidth={2} />
-                  </G>
-                </Svg>
+              {/* Error state */}
+              {error && !generating && (
+                <View style={styles.generatingOverlay}>
+                  <Text style={styles.errorText}>{error}</Text>
+                  <Pressable
+                    style={styles.retryBtn}
+                    onPress={() => selectStyle(selected)}
+                  >
+                    <Text style={styles.retryBtnText}>Retry</Text>
+                  </Pressable>
+                </View>
               )}
 
-              {/* Layer 3 — face photo clipped to oval, on top of hair */}
-              {photoUri ? (
-                <View
-                  style={[
-                    styles.faceOvalClip,
-                    {
-                      top:          ovalTop,
-                      left:         ovalLeft,
-                      width:        ovalWidth,
-                      height:       ovalHeight,
-                      borderRadius: ovalWidth * 0.55,
-                    },
-                  ]}
-                >
-                  <Image
-                    source={{ uri: photoUri }}
-                    style={{
-                      width:      PREVIEW_W,
-                      height:     PREVIEW_H,
-                      marginLeft: -ovalLeft,
-                      marginTop:  -ovalTop,
-                    }}
-                    resizeMode="cover"
-                  />
-                </View>
-              ) : null}
+              {/* "Original" / "Generated" label */}
+              <View style={styles.previewBadge}>
+                <Text style={styles.previewBadgeText}>
+                  {generating
+                    ? "⏳ Generating…"
+                    : activeGenerated
+                      ? "✨ AI Generated"
+                      : "📷 Original"}
+                </Text>
+              </View>
 
-              {/* Style name badge */}
+              {/* Style name */}
               <View style={styles.styleNameBadge}>
                 <Text style={styles.styleNameText}>{selected.name}</Text>
               </View>
             </View>
+
+            {/* ── 3-view strip (thumbnails) ── */}
+            {!generating &&
+              (generated.front || generated.left || generated.right) && (
+                <View style={styles.thumbRow}>
+                  {VIEW_TABS.map((tab) => (
+                    <Pressable
+                      key={tab.key}
+                      style={[
+                        styles.thumb,
+                        activeView === tab.key && styles.thumbActive,
+                      ]}
+                      onPress={() => setActiveView(tab.key)}
+                    >
+                      <Image
+                        source={{ uri: generated[tab.key] ?? photos[tab.key] }}
+                        style={styles.thumbImage}
+                        resizeMode="cover"
+                      />
+                      <Text style={styles.thumbLabel}>{tab.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
 
             {/* ── Style picker ── */}
             <View style={styles.sectionRow}>
@@ -226,7 +359,7 @@ export default function VirtualTryOnScreen({
                     styles.styleChip,
                     selected.id === style.id && styles.styleChipSelected,
                   ]}
-                  onPress={() => setSelected(style)}
+                  onPress={() => selectStyle(style)}
                 >
                   <Text
                     style={[
@@ -241,7 +374,7 @@ export default function VirtualTryOnScreen({
               ))}
             </ScrollView>
 
-            {/* ── Description card ── */}
+            {/* ── Description ── */}
             <View style={styles.descCard}>
               <Text style={styles.descTitle}>{selected.name}</Text>
               <Text style={styles.descText}>{selected.description}</Text>
@@ -270,7 +403,6 @@ export default function VirtualTryOnScreen({
                 Get salon recommendations →
               </Text>
             </Pressable>
-
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -278,8 +410,10 @@ export default function VirtualTryOnScreen({
   );
 }
 
+const THUMB_SIZE = (Dimensions.get("window").width - 96) / 3;
+
 const styles = StyleSheet.create({
-  safe:    { flex: 1 },
+  safe: { flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
   page: {
     backgroundColor: colors.page,
@@ -287,18 +421,22 @@ const styles = StyleSheet.create({
     padding: 18,
     minHeight: "100%",
   },
-  backBtn:  { marginBottom: 16 },
+  backBtn: { marginBottom: 16 },
   backText: { color: colors.primary, fontWeight: "700", fontSize: 15 },
-  heading:  { fontSize: 26, fontWeight: "800", color: colors.text, marginBottom: 4 },
-  sub:      { fontSize: 14, color: colors.textSoft, marginBottom: 16 },
-  accent:   { color: colors.primary, fontWeight: "700", textTransform: "capitalize" },
-
-  // Gender toggle
-  genderRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 20,
+  heading: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: 4,
   },
+  sub: { fontSize: 14, color: colors.textSoft, marginBottom: 16 },
+  accent: {
+    color: colors.primary,
+    fontWeight: "700",
+    textTransform: "capitalize",
+  },
+
+  genderRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   genderBtn: {
     flex: 1,
     paddingVertical: 10,
@@ -312,35 +450,70 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primary,
   },
-  genderBtnText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textSoft,
+  genderBtnText: { fontSize: 14, fontWeight: "700", color: colors.textSoft },
+  genderBtnTextActive: { color: colors.white },
+
+  viewTabRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
+  viewTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: "center",
   },
-  genderBtnTextActive: {
-    color: colors.white,
+  viewTabActive: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}22`,
   },
+  viewTabText: { fontSize: 13, fontWeight: "600", color: colors.textSoft },
+  viewTabTextActive: { color: colors.primary, fontWeight: "700" },
 
   photoWrap: {
     alignSelf: "center",
     borderRadius: 20,
     overflow: "hidden",
-    marginBottom: 24,
+    marginBottom: 16,
     backgroundColor: colors.card,
     position: "relative",
   },
-  photoPlaceholder: {
+
+  generatingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.card,
+    gap: 12,
   },
-  hairPng: {
+  generatingText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  generatingHint: { color: "rgba(255,255,255,0.65)", fontSize: 12 },
+  errorText: {
+    color: "#ff6b6b",
+    fontSize: 14,
+    textAlign: "center",
+    paddingHorizontal: 24,
+  },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+  },
+  retryBtnText: { color: colors.white, fontWeight: "700" },
+
+  previewBadge: {
     position: "absolute",
+    top: 12,
+    left: 12,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  faceOvalClip: {
-    position: "absolute",
-    overflow: "hidden",
-  },
+  previewBadgeText: { color: "#fff", fontSize: 11, fontWeight: "600" },
+
   styleNameBadge: {
     position: "absolute",
     bottom: 12,
@@ -351,6 +524,29 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   styleNameText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+
+  thumbRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 20,
+    justifyContent: "center",
+  },
+  thumb: {
+    width: THUMB_SIZE,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  thumbActive: { borderColor: colors.primary },
+  thumbImage: { width: "100%", height: THUMB_SIZE * 1.2 },
+  thumbLabel: {
+    textAlign: "center",
+    fontSize: 11,
+    color: colors.textSoft,
+    paddingVertical: 4,
+    backgroundColor: colors.card,
+  },
 
   sectionRow: {
     flexDirection: "row",
@@ -370,36 +566,56 @@ const styles = StyleSheet.create({
 
   styleScroll: { gap: 10, paddingBottom: 4, marginBottom: 20 },
   styleChip: {
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 16, borderWidth: 1.5,
-    borderColor: colors.border, backgroundColor: colors.card,
-    minWidth: 100, alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    minWidth: 100,
+    alignItems: "center",
   },
   styleChipSelected: {
-    borderColor: colors.primary, backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   styleChipText: {
-    fontSize: 13, fontWeight: "700",
-    color: colors.textSoft, textAlign: "center",
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textSoft,
+    textAlign: "center",
   },
   styleChipTextSelected: { color: colors.white },
   styleLength: { fontSize: 10, color: colors.textSoft, marginTop: 2 },
 
   descCard: {
-    backgroundColor: colors.card, borderRadius: 16,
-    padding: 14, marginBottom: 20,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 20,
   },
-  descTitle: { fontSize: 15, fontWeight: "700", color: colors.text, marginBottom: 4 },
-  descText:  { fontSize: 13, color: colors.textSoft, lineHeight: 20 },
+  descTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 4,
+  },
+  descText: { fontSize: 13, color: colors.textSoft, lineHeight: 20 },
 
   primaryBtn: {
-    backgroundColor: colors.primary, borderRadius: 20,
-    paddingVertical: 14, alignItems: "center", marginBottom: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 10,
   },
-  primaryBtnText:  { color: colors.white, fontSize: 15, fontWeight: "700" },
+  primaryBtnText: { color: colors.white, fontSize: 15, fontWeight: "700" },
   secondaryBtn: {
-    borderWidth: 1.5, borderColor: colors.primary,
-    borderRadius: 20, paddingVertical: 13, alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: 20,
+    paddingVertical: 13,
+    alignItems: "center",
   },
   secondaryBtnText: { color: colors.primary, fontSize: 15, fontWeight: "700" },
 });

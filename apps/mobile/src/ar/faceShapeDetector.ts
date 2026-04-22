@@ -43,7 +43,7 @@ function dist(a: Landmark, b: Landmark): number {
 }
 
 export function detectFaceShape(landmarks: Landmark[]): FaceShape {
-  if (landmarks.length < 468) return "oval"; // fallback
+  if (landmarks.length < 468) return "oval";
 
   const faceHeight   = dist(landmarks[IDX.foreheadTop], landmarks[IDX.chin]);
   const faceWidth    = dist(landmarks[IDX.leftCheek],   landmarks[IDX.rightCheek]);
@@ -60,7 +60,6 @@ export function detectFaceShape(landmarks: Landmark[]): FaceShape {
   if (ratio > 1.25 && jawRatio < 0.75)              return "heart";
   if (jawRatio > 0.9 && ratio < 1.15)               return "square";
   if (ratio < 1.1 && jawRatio > 0.8)                return "round";
-  if (foreheadRatio < 0.80 && jawRatio < 0.75 && cheekWidth / faceWidth > 0.95)
-                                                     return "diamond";
+  if (foreheadRatio < 0.80 && jawRatio < 0.75 && cheekWidth / faceWidth > 0.95) return "diamond";
   return "oval"; // default / most common
 }

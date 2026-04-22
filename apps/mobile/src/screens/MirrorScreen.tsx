@@ -1,25 +1,6 @@
 /**
- * MirrorScreen.tsx
- *
- * Virtual mirror with two modes:
- *  1. CAMERA MODE  — live camera feed. In a production build you'd layer
- *     react-native-vision-camera + @shopify/react-native-skia + a TFLite
- *     face-landmark model here to draw hair overlays and auto-detect face shape.
- *     The scaffold below shows exactly where those pieces slot in.
- *
- *  2. MANUAL MODE  — a quick questionnaire for hairType, hairLength, styleGoal
- *     (and faceShape if camera detection is unavailable / skipped).
- *
- * After the user confirms their profile it is:
- *  • Saved to the backend via PUT /hair-profile
- *  • Then the app navigates to StyleRecommendationScreen which fetches results.
- *
- * ─── Dependencies you need to install for full camera support ─────────────────
- *   npx expo install react-native-vision-camera
- *   npx expo install @shopify/react-native-skia
- *   npx expo install react-native-fast-tflite          ← for face landmark model
- *   npx expo install expo-camera                       ← permissions helper
- * ─────────────────────────────────────────────────────────────────────────────
+ MirrorScreen.tsx
+
  */
 
 import {
@@ -39,13 +20,6 @@ import { RootStackParamList } from "../navigation/RootNavigator";
 import { colors } from "../theme/colors";
 import { API_BASE_URL } from "../config/api";
 import { HairProfile } from "../types/salon";
-
-// ─── Swap this import in when you add react-native-vision-camera ──────────────
-// import { Camera, useCameraDevice } from "react-native-vision-camera";
-// import { useSkiaFrameProcessor } from "react-native-vision-camera";
-// import { drawHairOverlay } from "../ar/hairOverlays";   ← your Skia overlay
-// import { detectFaceShape } from "../ar/faceShape";       ← your landmark logic
-// ─────────────────────────────────────────────────────────────────────────────
 
 type Props = NativeStackScreenProps<RootStackParamList, "Mirror"> & {
   idToken: string;
@@ -115,30 +89,6 @@ export default function MirrorScreen({ route, navigation, idToken, userSub }: Pr
   const [hairType, setHairType] = useState<string | null>(null);
   const [hairLength, setHairLength] = useState<string | null>(null);
   const [styleGoal, setStyleGoal] = useState<string | null>(null);
-
-  // ── CAMERA STEP ─────────────────────────────────────────────────────────────
-  // When you integrate react-native-vision-camera:
-  //
-  //   const device = useCameraDevice("front");
-  //   const frameProcessor = useSkiaFrameProcessor((frame) => {
-  //     "worklet";
-  //     const landmarks = detectFaceLandmarks(frame);   // TFLite call
-  //     if (landmarks) {
-  //       const detected = detectFaceShape(landmarks);  // your ratio logic
-  //       runOnJS(setFaceShape)(detected);
-  //       drawHairOverlay(frame, landmarks, selectedStyle); // Skia draw
-  //     }
-  //   }, [selectedStyle]);
-  //
-  //   return (
-  //     <Camera
-  //       style={StyleSheet.absoluteFill}
-  //       device={device}
-  //       isActive
-  //       frameProcessor={frameProcessor}
-  //     />
-  //   );
-  // ───────────────────────────────────────────────────────────────────────────
 
   async function handleSaveAndRecommend() {
     if (!faceShape || !hairType || !hairLength || !styleGoal) {

@@ -59,7 +59,11 @@ export type RootStackParamList = {
   VirtualTryOn: {
     faceShape: string;
     landmarks: number[];
-    photoUri: string;
+    photos: {
+      front: string;
+      left: string;
+      right: string;
+    };
   };
 };
 
@@ -141,11 +145,11 @@ export default function RootNavigator({
               {(props) => (
                 <FaceScanScreen
                   {...props}
-                  onScanComplete={(faceShape, landmarks, photoUri) => {
+                  onScanComplete={(faceShape, landmarks, photos) => {
                     props.navigation.navigate("VirtualTryOn", {
                       faceShape,
                       landmarks,
-                      photoUri,
+                      photos, // ← pass all 3
                     });
                   }}
                 />
@@ -157,7 +161,7 @@ export default function RootNavigator({
                   {...props}
                   faceShape={props.route.params.faceShape}
                   landmarks={props.route.params.landmarks}
-                  photoUri={props.route.params.photoUri}
+                  photos={props.route.params.photos}
                 />
               )}
             </Stack.Screen>

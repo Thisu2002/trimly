@@ -86,7 +86,12 @@ export default function HomeScreen({
             {/* Mirror CTA — opens camera + AR hair try-on */}
             <Pressable
               style={styles.mirrorCard}
-              onPress={() => navigation.navigate("Mirror")}
+//               onPress={() => navigation.navigate("VirtualTryOn", {  photos: {
+//   front: "http://localhost:4000/uploads/test-front.jpg",
+//   left:  "http://localhost:4000/uploads/test-left.jpg",
+//   right: "http://localhost:4000/uploads/test-right.jpg",~
+// }, faceShape: "oval", landmarks: [] })}
+onPress={() => navigation.navigate("Mirror")}
             >
               <View style={styles.featureTextWrap}>
                 <Text style={styles.featureEmoji}>🪞</Text>

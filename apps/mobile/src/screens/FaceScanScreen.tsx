@@ -1,18 +1,6 @@
 /**
  * FaceScanScreen.tsx
- *
- * Guided face-capture flow:
- *   Step 1 – "Look straight ahead"  → capture frame → extract landmarks
- *   Step 2 – "Turn left"            → capture frame → refine jaw landmarks
- *   Step 3 – "Turn right"           → capture frame → refine other side
- *   Step 4 – Detect face shape from merged landmarks
- *   Step 5 – Show detected shape + proceed to questionnaire or try-on
- *
- * How it works without a native TFLite module:
- *   We render expo-camera frames into a hidden <WebView> that runs
- *   MediaPipe FaceMesh (WASM build) in-browser.  The WebView posts
- *   the landmark array back via postMessage.  This avoids all native
- *   module compilation.
+ 
  */
 
 import {
@@ -34,7 +22,11 @@ import { colors } from "../theme/colors";
 import { detectFaceShape, Landmark } from "../ar/faceShapeDetector";
 
 type Props = NativeStackScreenProps<RootStackParamList, "FaceScan"> & {
-  onScanComplete: (faceShape: string, landmarks: number[], photoUri: string) => void;
+  onScanComplete: (
+    faceShape: string,
+    landmarks: number[],
+    photos: { front: string; left: string; right: string }
+  ) => void;
 };
 
 type ScanStep = "center" | "left" | "right" | "processing" | "done";
@@ -138,7 +130,11 @@ export default function FaceScanScreen({ navigation, onScanComplete }: Props) {
   const landmarkSets = useRef<number[][]>([]);
 
   const stepRef = useRef<ScanStep>("center");
-  const centerPhotoUri = useRef<string | null>(null);
+  const capturedPhotos = useRef<{
+    front?: string;
+    left?: string;
+    right?: string;
+  }>({});
 
   useEffect(() => {
     stepRef.current = step;
@@ -200,8 +196,11 @@ export default function FaceScanScreen({ navigation, onScanComplete }: Props) {
 
     const faceShape = detectFaceShape(landmarks);
     setStep("done");
-    onScanComplete(faceShape, merged, centerPhotoUri.current ?? "");
-  }
+onScanComplete(faceShape, merged, {
+  front: capturedPhotos.current.front ?? "",
+  left:  capturedPhotos.current.left  ?? "",
+  right: capturedPhotos.current.right ?? "",
+});  }
 
   async function captureAndSend() {
     if (!cameraRef.current) return;
@@ -213,14 +212,14 @@ export default function FaceScanScreen({ navigation, onScanComplete }: Props) {
       setCountdown(0);
 
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
+        quality: 0.3,
         base64: true,
         skipProcessing: true,
       });
 
-       if (stepRef.current === "center") {
-      centerPhotoUri.current = photo!.uri;
-    }
+      if (stepRef.current === "center") capturedPhotos.current.front = photo!.uri;
+      if (stepRef.current === "left")   capturedPhotos.current.left  = photo!.uri;
+      if (stepRef.current === "right")  capturedPhotos.current.right = photo!.uri;
 
       webviewRef.current?.postMessage(
         JSON.stringify({ type: "frame", base64: photo!.base64 }),
