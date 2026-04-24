@@ -14,14 +14,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useState, useEffect } from "react";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { colors } from "../theme/colors";
 import { API_BASE_URL } from "../config/api";
 import { HairProfile } from "../types/salon";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Mirror"> & {
+type Props = {
+  navigation?: any;
+  route?: any;
   idToken: string;
   userSub: string | undefined;
 };
@@ -79,10 +82,41 @@ function OptionRow<T extends string>({
   );
 }
 
-export default function MirrorScreen({ route, navigation, idToken, userSub }: Props) {
-  const { detectedFaceShape, landmarks } = route.params ?? {};
+export default function MirrorScreen({ route, navigation: navProp, idToken, userSub }: Props) {
+  const hookNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = navProp ?? hookNav;
+
+  const { detectedFaceShape, landmarks } = route?.params ?? {};
 
   const [step, setStep] = useState<Step>("camera");
+
+  // On mount: check if user already has face photos → skip straight to VirtualTryOn
+useEffect(() => {
+  async function checkExistingPhotos() {
+    if (!userSub) return;
+    if (detectedFaceShape) return; // came from a fresh scan, don't redirect
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/face-photos/${userSub}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Has existing originals — go straight to VirtualTryOn
+        navigation.replace("VirtualTryOn", {
+          faceShape: data.faceShape ?? detectedFaceShape ?? "oval",
+          landmarks: landmarks ?? [],
+          photos: { front: data.frontPhoto, left: data.leftPhoto, right: data.rightPhoto },
+          existingGenerated: data.generatedPhotos ?? {},
+          userSub,
+          idToken,
+        });
+      }
+    } catch (e) {
+      // No photos or error — stay on current screen
+    }
+  }
+  checkExistingPhotos();
+}, []); // run once on mount
 
   // Profile fields
   const [faceShape, setFaceShape] = useState<string | null>(detectedFaceShape ?? null);

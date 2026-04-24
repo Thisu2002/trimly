@@ -10,15 +10,24 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { API_BASE_URL } from "../config/api";
 import { SalonListItem } from "../types/salon";
 import { colors } from "../theme/colors";
 
-type Props = NativeStackScreenProps<RootStackParamList, "SalonList">;
+// Accept any navigation/route so screen works both from root stack AND tab bar
+type Props = {
+  navigation?: any;
+  route?: any;
+};
 
-export default function SalonListScreen({ navigation }: Props) {
+export default function SalonListScreen({ navigation: navProp }: Props) {
+  // Use passed navigation prop or fall back to hook
+  const hookNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = navProp ?? hookNav;
+
   const [query, setQuery] = useState("");
   const [salons, setSalons] = useState<SalonListItem[]>([]);
   const [loading, setLoading] = useState(true);

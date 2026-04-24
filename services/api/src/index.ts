@@ -14,6 +14,7 @@ import appointmentRoutes from "./routes/appointment";
 import paymentRoutes from "./routes/payment";
 import hairProfileRoutes from "./routes/hairProfile";
 import hairGenerateRoutes from "./routes/hairGenerate";
+import facePhotosRoutes from "./routes/facePhotos";
 import path from "path";
 
 const app = express();
@@ -52,7 +53,9 @@ app.use("/recommendation", recommendationRoutes);
 app.use("/api/appointment", appointmentRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/hair-profile", hairProfileRoutes);
+console.log("✅ Mounting hair-generate router");
 app.use("/api/hair-generate", hairGenerateRoutes);
+app.use("/api/face-photos", facePhotosRoutes);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

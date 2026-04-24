@@ -8,14 +8,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { colors } from "../theme/colors";
 import { HairProfile, MatchedService, Recommendation } from "../types/salon";
 import { API_BASE_URL } from "../config/api";
 
-type Props = NativeStackScreenProps<RootStackParamList, "StyleRecommendation">& {
+// Accept any navigation/route so screen works both from root stack AND tab bar
+type Props = {
+  navigation?: any;
+  route?: any;
   userSub: string | undefined;
 };
 
@@ -54,7 +58,11 @@ function groupBySalon(services: MatchedService[]): SalonGroup[] {
   return Array.from(map.values()).slice(0, MAX_SALONS);
 }
 
-export default function StyleRecommendationScreen({ navigation, userSub }: Props) {
+export default function StyleRecommendationScreen({ navigation: navProp, userSub }: Props) {
+  // Use passed navigation prop or fall back to hook
+  const hookNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = navProp ?? hookNav;
+
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState<string | null>(null);
   const [profile, setProfile]               = useState<HairProfile | null>(null);

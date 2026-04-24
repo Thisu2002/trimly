@@ -11,31 +11,19 @@ type Props = NativeStackScreenProps<RootStackParamList, "BookingSummary"> & {
   idToken: string;
 };
 
-export default function BookingSummaryScreen({
-  route,
-  navigation,
-  idToken,
-}: Props) {
-  const {
-    salonId,
-    salonName,
-    date,
-    startTime,
-    selectedServices,
-    selectedStylists,
-  } = route.params;
+const STEPS = ["Services", "Date & Time", "Stylist", "Confirm"];
+const CURRENT_STEP = 3;
+
+export default function BookingSummaryScreen({ route, navigation, idToken }: Props) {
+  const { salonId, salonName, date, startTime, selectedServices, selectedStylists } =
+    route.params;
 
   const total = selectedServices.reduce((sum, s) => sum + s.priceLkr, 0);
 
-  /**
-   * Poll /api/mobile/payment-status/:pendingPaymentId every 2 seconds.
-   * Resolves with the appointmentId once confirmed, or rejects on failure/timeout.
-   */
   function pollPaymentStatus(pendingPaymentId: string): Promise<string> {
     return new Promise((resolve, reject) => {
       let attempts = 0;
-      const MAX_ATTEMPTS = 20; // 20 × 2s = 40 seconds max
-
+      const MAX_ATTEMPTS = 20;
       const interval = setInterval(async () => {
         attempts++;
         try {
@@ -43,8 +31,6 @@ export default function BookingSummaryScreen({
             `${API_BASE_URL}/api/mobile/payment-status/${pendingPaymentId}`
           );
           const data = await res.json();
-          console.log("Polling payment status:", data);
-
           if (data.status === "confirmed") {
             clearInterval(interval);
             resolve(data.appointmentId);
@@ -55,7 +41,6 @@ export default function BookingSummaryScreen({
             clearInterval(interval);
             reject(new Error("Payment confirmation timed out. Please contact support if you were charged."));
           }
-          // status === "pending" → keep polling
         } catch (e) {
           if (attempts >= MAX_ATTEMPTS) {
             clearInterval(interval);
@@ -74,62 +59,31 @@ export default function BookingSummaryScreen({
         sequence: service.sequence!,
       }));
 
-      // Step 1: Initiate payment (creates PendingPayment, returns payment data)
       const res = await fetch(`${API_BASE_URL}/api/mobile/initiate-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          idToken,
-          salonId,
-          date,
-          startTime,
-          serviceAssignments,
-        }),
+        body: JSON.stringify({ idToken, salonId, date, startTime, serviceAssignments }),
       });
 
       const data = await res.json();
-      console.log("Payment Init Response:", data);
-
-      if (!res.ok) {
-        throw new Error(data.error || "Payment init failed");
-      }
+      if (!res.ok) throw new Error(data.error || "Payment init failed");
 
       const { pendingPaymentId, paymentData } = data;
 
-      // Step 2: Launch PayHere popup
       PayHere.startPayment(
         paymentData,
-
-        // ✅ onSuccess — fired when user completes the payment form.
-        // Note: this does NOT mean payment is confirmed server-side yet.
-        // PayHere sends the real confirmation to notify_url asynchronously.
         async (_paymentId: string) => {
           try {
-            // Step 3: Poll until the server webhook has processed the payment
             const appointmentId = await pollPaymentStatus(pendingPaymentId);
-            console.log("Payment confirmed for appointment", appointmentId);
             navigation.navigate("PaymentSuccess", { appointmentId });
           } catch (pollError: any) {
-            Alert.alert(
-              "Checking Payment",
-              pollError?.message ||
-                "We couldn't confirm your payment yet. Please check your bookings."
-            );
+            Alert.alert("Checking Payment", pollError?.message || "We couldn't confirm your payment yet.");
           }
         },
-
-        // ❌ onError
-        (error: string) => {
-          Alert.alert("Payment Error", error);
-        },
-
-        // 🚪 onDismissed — user closed the popup without paying
-        () => {
-          console.log("Payment dismissed by user");
-        }
+        (error: string) => Alert.alert("Payment Error", error),
+        () => console.log("Payment dismissed by user")
       );
     } catch (error: any) {
-      console.log(error);
       Alert.alert("Error", error?.message || "Something went wrong");
     }
   }
@@ -145,20 +99,51 @@ export default function BookingSummaryScreen({
         <ScrollView contentContainerStyle={styles.outer}>
           <View style={styles.page}>
             <Text style={styles.title}>{salonName}</Text>
-            <Text style={styles.meta}>{date}</Text>
-            <Text style={styles.meta}>{startTime}</Text>
+            <Text style={styles.meta}>{date} · {startTime}</Text>
 
-            <View style={styles.progressRow}>
-              <Text style={styles.progress}>Services</Text>
-              <Text style={styles.progress}>Date & Time</Text>
-              <Text style={styles.progress}>Stylist</Text>
-              <Text style={styles.progressActive}>Confirm</Text>
+            {/* Step Progress */}
+            <View style={styles.stepRow}>
+              {STEPS.map((step, i) => {
+                const isCompleted = i < CURRENT_STEP;
+                const isActive = i === CURRENT_STEP;
+                return (
+                  <View key={step} style={styles.stepItem}>
+                    {i > 0 && (
+                      <View
+                        style={[
+                          styles.stepLine,
+                          (isCompleted || isActive) && styles.stepLineActive,
+                        ]}
+                      />
+                    )}
+                    <View
+                      style={[
+                        styles.stepDot,
+                        isCompleted && styles.stepDotCompleted,
+                        isActive && styles.stepDotActive,
+                      ]}
+                    >
+                      {/* {isCompleted && <Text style={styles.stepCheck}>✓</Text>} */}
+                      {isActive && <View style={styles.stepDotInner} />}
+                    </View>
+                    <Text
+                      style={[
+                        styles.stepLabel,
+                        isActive && styles.stepLabelActive,
+                        isCompleted && styles.stepLabelCompleted,
+                      ]}
+                    >
+                      {step}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
 
             <Text style={styles.sectionTitle}>Summary</Text>
             {selectedServices.map((service) => (
               <View key={service.id} style={styles.summaryRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.serviceName}>{service.name}</Text>
                   <Text style={styles.stylistName}>
                     with {selectedStylists[service.id]?.name}
@@ -169,13 +154,13 @@ export default function BookingSummaryScreen({
             ))}
 
             <View style={styles.divider} />
-            <View style={styles.summaryRow}>
+            <View style={styles.totalRow}>
               <Text style={styles.totalText}>Total</Text>
               <Text style={styles.totalText}>LKR {total}</Text>
             </View>
 
-            <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-              <Text style={styles.confirmButtonText}>Continue</Text>
+            <Pressable style={styles.continueButton} onPress={handleConfirm}>
+              <Text style={styles.continueButtonText}>Confirm & Pay →</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -193,17 +178,78 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  title: { fontSize: 34, fontWeight: "800", color: colors.text },
-  meta: { color: colors.textSoft, marginTop: 4 },
-  progressRow: {
+  title: { fontSize: 28, fontWeight: "800", color: colors.text },
+  meta: { color: colors.textSoft, marginTop: 4, marginBottom: 20 },
+
+  // Step progress
+  stepRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    marginVertical: 20,
+    marginBottom: 24,
   },
-  progressActive: { color: colors.text, fontWeight: "700" },
-  progress: { color: colors.textSoft, fontSize: 12 },
+  stepItem: {
+    flex: 1,
+    alignItems: "center",
+    position: "relative",
+  },
+  stepLine: {
+    position: "absolute",
+    top: 9,
+    right: "50%",
+    left: "-50%",
+    height: 2,
+    backgroundColor: colors.glassBorder,
+    zIndex: 0,
+  },
+  stepLineActive: {
+    backgroundColor: colors.primary,
+  },
+  stepDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.glassBorder,
+    backgroundColor: colors.page,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+    marginBottom: 6,
+  },
+  stepDotActive: {
+    borderColor: colors.primary,
+  },
+  stepDotCompleted: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  stepDotInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  stepCheck: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  stepLabel: {
+    fontSize: 10,
+    color: colors.textSoft,
+    textAlign: "center",
+  },
+  stepLabelActive: {
+    color: colors.text,
+    fontWeight: "700",
+  },
+  stepLabelCompleted: {
+    color: colors.primary,
+  },
+
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
     color: colors.text,
     marginBottom: 12,
@@ -211,42 +257,41 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 14,
     gap: 12,
   },
-  serviceName: {
-    fontWeight: "700",
-    color: colors.text,
-  },
-  stylistName: {
-    color: colors.textSoft,
-    marginTop: 4,
-  },
-  price: {
-    color: colors.text,
-  },
+  serviceName: { fontWeight: "700", color: colors.text },
+  stylistName: { color: colors.textSoft, marginTop: 4 },
+  price: { color: colors.text },
   divider: {
     height: 1,
     backgroundColor: colors.border,
     marginVertical: 14,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
   totalText: {
     fontWeight: "800",
     fontSize: 16,
     color: colors.text,
   },
-  confirmButton: {
-    alignSelf: "flex-end",
+  continueButton: {
     backgroundColor: colors.card,
     borderRadius: 999,
-    paddingHorizontal: 22,
-    paddingVertical: 10,
+    paddingVertical: 14,
+    alignItems: "center",
     marginTop: 8,
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  confirmButtonText: {
+  continueButtonText: {
     color: colors.text,
-    fontWeight: "600",
+    fontWeight: "700",
+    fontSize: 15,
+    letterSpacing: 0.3,
   },
 });

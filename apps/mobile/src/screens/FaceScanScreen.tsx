@@ -20,13 +20,16 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { colors } from "../theme/colors";
 import { detectFaceShape, Landmark } from "../ar/faceShapeDetector";
+import { API_BASE_URL } from "../config/api";
 
 type Props = NativeStackScreenProps<RootStackParamList, "FaceScan"> & {
   onScanComplete: (
     faceShape: string,
     landmarks: number[],
-    photos: { front: string; left: string; right: string }
+    photos: { front: string; left: string; right: string },
   ) => void;
+  idToken: string;
+  userSub: string | undefined;
 };
 
 type ScanStep = "center" | "left" | "right" | "processing" | "done";
@@ -120,8 +123,8 @@ document.addEventListener("message", onMessage);
 </body>
 </html>`;
 
-export default function FaceScanScreen({ navigation, onScanComplete }: Props) {
-  const [permission, requestPermission] = useCameraPermissions();
+export default function FaceScanScreen({ navigation, onScanComplete, idToken, userSub }: Props) {
+    const [permission, requestPermission] = useCameraPermissions();
   const [step, setStep] = useState<ScanStep>("center");
   const [countdown, setCountdown] = useState<number | null>(null);
   const cameraRef = useRef<CameraView>(null);
@@ -174,7 +177,7 @@ export default function FaceScanScreen({ navigation, onScanComplete }: Props) {
     console.log("Advancing to step:", step);
   }
 
-  function processLandmarks() {
+  async function processLandmarks() {
     const sets = landmarkSets.current;
     if (sets.length === 0) {
       Alert.alert("Scan failed", "No face data captured. Please try again.");
@@ -195,12 +198,50 @@ export default function FaceScanScreen({ navigation, onScanComplete }: Props) {
     }
 
     const faceShape = detectFaceShape(landmarks);
+    const photos = {
+      front: capturedPhotos.current.front ?? "",
+      left: capturedPhotos.current.left ?? "",
+      right: capturedPhotos.current.right ?? "",
+    };
+
+    // Convert URIs to base64, save to DB (deletes old + generated automatically via upsert)
+    if (userSub && idToken) {
+      try {
+        const toBase64 = async (uri: string) => {
+          const r = await fetch(uri);
+          const blob = await r.blob();
+          return new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        };
+        const [front64, left64, right64] = await Promise.all([
+          toBase64(photos.front),
+          toBase64(photos.left),
+          toBase64(photos.right),
+        ]);
+        await fetch(`${API_BASE_URL}/api/face-photos/${userSub}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            frontPhoto: front64,
+            leftPhoto: left64,
+            rightPhoto: right64,
+          }),
+        });
+      } catch (e) {
+        console.error("Failed to save face photos:", e);
+      }
+    }
+
     setStep("done");
-onScanComplete(faceShape, merged, {
-  front: capturedPhotos.current.front ?? "",
-  left:  capturedPhotos.current.left  ?? "",
-  right: capturedPhotos.current.right ?? "",
-});  }
+    onScanComplete(faceShape, merged, photos);
+  }
 
   async function captureAndSend() {
     if (!cameraRef.current) return;
@@ -217,9 +258,11 @@ onScanComplete(faceShape, merged, {
         skipProcessing: true,
       });
 
-      if (stepRef.current === "center") capturedPhotos.current.front = photo!.uri;
-      if (stepRef.current === "left")   capturedPhotos.current.left  = photo!.uri;
-      if (stepRef.current === "right")  capturedPhotos.current.right = photo!.uri;
+      if (stepRef.current === "center")
+        capturedPhotos.current.front = photo!.uri;
+      if (stepRef.current === "left") capturedPhotos.current.left = photo!.uri;
+      if (stepRef.current === "right")
+        capturedPhotos.current.right = photo!.uri;
 
       webviewRef.current?.postMessage(
         JSON.stringify({ type: "frame", base64: photo!.base64 }),

@@ -1,11 +1,9 @@
 import { Router } from "express";
 import sharp from "sharp";
+import FormData from "form-data";
+import axios from "axios";
 
 const router = Router();
-
-//CLAID.AI
-import FormData from "form-data";
-
 
 const STYLE_PROMPTS: Record<string, string> = {
   pixie:           "Change the hairstyle to a pixie cut: very short, cropped, tapered nape, textured top. Keep the face, skin, and everything else identical.",
@@ -18,83 +16,90 @@ const STYLE_PROMPTS: Record<string, string> = {
   male_voluminous: "Change the hairstyle to a mens voluminous quiff: lifted at the front, textured finish. Keep the face, skin, and everything else identical.",
 };
 
-import axios from "axios";
-
-router.post("/generate", async (req: any, res) => {
+router.post("/generate-all", async (req: any, res) => {
   try {
-    const { photoBase64, styleId } = req.body;  // ← removed view
-    if (!photoBase64) return res.status(400).json({ error: "Missing image" });
+    console.log("🔥 /generate-all hit");
+    const { photos, styleId } = req.body as {
+      photos: { front: string; left: string; right: string };
+      styleId: string;
+    };
 
-    const rawBase64 = photoBase64.includes(",")
-      ? photoBase64.split(",")[1]
-      : photoBase64;
-
-    const processed = await sharp(Buffer.from(rawBase64, "base64"))
-      .rotate()
-      .resize(1024, 1024, { fit: "cover" })
-      .jpeg({ quality: 90 })
-      .toBuffer();
-
-    // Upload
-    const uploadForm = new FormData();
-    uploadForm.append("file", processed, {
-      filename: "photo",
-      contentType: "image/jpeg",
-    });
-    uploadForm.append(
-      "data",
-      JSON.stringify({ operations: {}, output: { format: "jpeg" } })
-    );
-
-    const uploadRes = await axios.post(
-      "https://api.claid.ai/v1/image/edit/upload",
-      uploadForm,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.CLAID_API_KEY}`,
-          ...uploadForm.getHeaders(),
-        },
-      }
-    );
-
-    const imageUrl: string = uploadRes.data?.data?.output?.tmp_url;
-    if (!imageUrl) throw new Error(`No image URL from Claid upload. Response: ${JSON.stringify(uploadRes.data)}`);
-    console.log("✅ Claid upload success:", imageUrl);
-
-    // AI Edit — add per-request delay based on a timestamp header
-    // to stagger concurrent calls from the frontend
-    const requestIndex = parseInt(req.headers["x-request-index"] ?? "0", 10);
-    if (requestIndex > 0) {
-      await new Promise((r) => setTimeout(r, requestIndex * 1200)); // 0ms, 1.2s, 2.4s
+    if (!photos?.front || !photos?.left || !photos?.right) {
+      return res.status(400).json({ error: "Missing photos" });
     }
 
     const prompt = STYLE_PROMPTS[styleId] ?? "Change the hairstyle to a natural style. Keep the face identical.";
+    const results: Record<string, string> = {};
 
-    const aiEditRes = await axios.post(
-      "https://api.claid.ai/v1/image/ai-edit",
-      {
-        input: imageUrl,
-        options: { model: "v2", prompt },
-        output: { format: "png", number_of_images: 1 },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.CLAID_API_KEY}`,
-          "Content-Type": "application/json",
+    for (const view of ["front", "left", "right"] as const) {
+      console.log(`⏳ Processing ${view}...`);
+
+      const rawBase64 = photos[view].includes(",")
+        ? photos[view].split(",")[1]
+        : photos[view];
+
+      const processed = await sharp(Buffer.from(rawBase64, "base64"))
+        .rotate()
+        .resize(1024, 1024, { fit: "cover" })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+
+      const uploadForm = new FormData();
+      uploadForm.append("file", processed, {
+        filename: "photo",
+        contentType: "image/jpeg",
+      });
+      uploadForm.append(
+        "data",
+        JSON.stringify({ operations: {}, output: { format: "jpeg" } })
+      );
+
+      const uploadRes = await axios.post(
+        "https://api.claid.ai/v1/image/edit/upload",
+        uploadForm,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.CLAID_API_KEY}`,
+            ...uploadForm.getHeaders(),
+          },
+        }
+      );
+
+      const imageUrl: string = uploadRes.data?.data?.output?.tmp_url;
+      if (!imageUrl) throw new Error(`No upload URL for ${view}`);
+      console.log(`✅ Uploaded ${view}:`, imageUrl);
+
+      const aiEditRes = await axios.post(
+        "https://api.claid.ai/v1/image/ai-edit",
+        {
+          input: imageUrl,
+          options: { model: "v2", prompt },
+          output: { format: "png", number_of_images: 1 },
         },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.CLAID_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const resultUrl: string = aiEditRes.data?.data?.result_url;
+      if (!resultUrl) throw new Error(`No result_url for ${view}`);
+      console.log(`✅ AI edit accepted for ${view}, polling...`);
+
+      const finalImageUrl = await pollClaidResult(resultUrl);
+
+      const imgBuffer = await axios.get(finalImageUrl, { responseType: "arraybuffer" });
+      results[view] = `data:image/png;base64,${Buffer.from(imgBuffer.data).toString("base64")}`;
+      console.log(`✅ Done ${view}`);
+
+      if (view !== "right") {
+        await new Promise((r) => setTimeout(r, 1500));
       }
-    );
+    }
 
-    const resultUrl: string = aiEditRes.data?.data?.result_url;
-    if (!resultUrl) throw new Error(`No result_url from Claid. Response: ${JSON.stringify(aiEditRes.data)}`);
-    console.log("✅ Claid AI edit accepted, polling:", resultUrl);
-
-    const finalImageUrl = await pollClaidResult(resultUrl);
-
-    const imgBuffer = await axios.get(finalImageUrl, { responseType: "arraybuffer" });
-    return res.json({
-      imageUrl: `data:image/png;base64,${Buffer.from(imgBuffer.data).toString("base64")}`,
-    });
+    return res.json({ front: results.front, left: results.left, right: results.right });
 
   } catch (err: any) {
     const detail = err?.response?.data ?? err.message;
@@ -119,17 +124,11 @@ async function pollClaidResult(
     const status: string = data?.status;
     console.log(`Claid poll ${i + 1}: ${status}`);
 
-    // Log full response on first DONE so we can see the exact shape
-    if (status === "DONE" && i === 1) {
-      console.log("Claid DONE response:", JSON.stringify(data, null, 2));
-    }
-
     if (status === "DONE") {
-  const url = data?.result?.output_objects?.[0]?.tmp_url;
-
-  if (url) return url;
-  throw new Error(`DONE but couldn't find image URL. Full data: ${JSON.stringify(data)}`);
-}
+      const url = data?.result?.output_objects?.[0]?.tmp_url;
+      if (url) return url;
+      throw new Error(`DONE but no URL. Full data: ${JSON.stringify(data)}`);
+    }
 
     if (status === "FAILED" || status === "failed") {
       throw new Error(`Claid generation failed: ${JSON.stringify(data)}`);
@@ -138,6 +137,7 @@ async function pollClaidResult(
 
   throw new Error("Claid polling timed out");
 }
+
 //CLOUDFLARE WIHTOUT MASK
 // router.post("/generate", async (req: any, res) => {
 //   try {

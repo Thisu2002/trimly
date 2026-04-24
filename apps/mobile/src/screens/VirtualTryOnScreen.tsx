@@ -16,11 +16,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { colors } from "../theme/colors";
 import { API_BASE_URL } from "../config/api";
 import { HAIR_STYLES_3D, HairStyle3D } from "../ar/hairStyles3D";
+import { readAsStringAsync, EncodingType } from "expo-file-system/legacy";
 
 type Props = NativeStackScreenProps<RootStackParamList, "VirtualTryOn"> & {
   faceShape: string;
@@ -46,6 +47,8 @@ export default function VirtualTryOnScreen({
   landmarks,
 }: Props) {
   const photos = route.params.photos;
+  const userSub = route.params.userSub;
+  const idToken = route.params.idToken;
   //   const photos = {
   //   front: "http://localhost:4000/uploads/test-front.jpg",
   //   left:  "http://localhost:4000/uploads/test-left.jpg",
@@ -65,6 +68,18 @@ export default function VirtualTryOnScreen({
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Pre-populate cache from DB-saved generated photos
+  useEffect(() => {
+    const existing = route.params.existingGenerated;
+    if (existing) {
+      cache.current = { ...existing };
+      // If the initially selected style already has generated images, show them
+      if (existing[selected.id]) {
+        setGenerated(existing[selected.id]);
+      }
+    }
+  }, []);
+
   const byGender = HAIR_STYLES_3D.filter((s) => s.gender === genderFilter);
   const recommended = byGender.filter((s) =>
     s.suitableFaceShapes.includes(faceShape),
@@ -82,92 +97,91 @@ export default function VirtualTryOnScreen({
   }
 
   async function selectStyle(style: HairStyle3D) {
-    setSelected(style);
-    setError(null);
+    console.log(`Selected style: ${style.name} (ID: ${style.id})`);
+  setSelected(style);
+  setError(null);
 
-    // Use cache if already generated
-    if (cache.current[style.id]) {
-      setGenerated(cache.current[style.id]);
-      return;
-    }
-
-    setGenerated({});
-    setGenerating(true);
-
-    try {
-      // Generate all 3 views in parallel
-      const [frontResult, leftResult, rightResult] = await Promise.all([
-        generateView(photos.front, style.id, "front", 0),
-        generateView(photos.left, style.id, "left", 1),
-        generateView(photos.right, style.id, "right", 2),
-      ]);
-
-      const result: GeneratedImages = {
-        front: frontResult,
-        left: leftResult,
-        right: rightResult,
-      };
-
-      cache.current[style.id] = result;
-      setGenerated(result);
-    } catch (e: any) {
-      setError("Generation failed. Check your connection and try again.");
-    } finally {
-      setGenerating(false);
-    }
+  if (cache.current[style.id]) {
+    setGenerated(cache.current[style.id]);
+    return;
   }
 
-  async function generateView(
-    photoUri: string,
-    styleId: string,
-    view: ViewTab,
-    index: number, // ← add this
-  ): Promise<string> {
-    const base64 = await uriToBase64(photoUri);
+  setGenerated({});
+  setGenerating(true);
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const res = await fetch(`${API_BASE_URL}/api/hair-generate/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-request-index": String(index), // ← tells backend which slot this is
-        },
-        body: JSON.stringify({ photoBase64: base64, styleId }), // ← removed view
-      });
+  try {
+    console.log("Checking cache for style ID:", style.id);
+    const [frontB64, leftB64, rightB64] = await Promise.all([
+      uriToBase64(photos.front),
+      uriToBase64(photos.left),
+      uriToBase64(photos.right),
+    ]);
 
-      if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, 60000));
-        continue;
-      }
-      if (res.status === 503) {
-        await new Promise((r) => setTimeout(r, 25000));
-        continue;
-      }
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error ?? `HTTP ${res.status}`);
-      }
+    console.log("Converted photos to base64, sending generation request for style ID:", style.id);
 
-      const data = await res.json();
-      return data.imageUrl as string;
-    }
-
-    throw new Error("Generation failed after retries.");
-  }
-
-  async function uriToBase64(uri: string): Promise<string> {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = (reader.result as string).split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+    const res = await fetch(`${API_BASE_URL}/api/hair-generate/generate-all`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        photos: { front: frontB64, left: leftB64, right: rightB64 },
+        styleId: style.id,
+      }),
     });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error ?? `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const result: GeneratedImages = {
+      front: data.front,
+      left:  data.left,
+      right: data.right,
+    };
+
+    cache.current[style.id] = result;
+    setGenerated(result);
+
+    // Persist to DB
+    // Persist to DB — send all 3 in one request instead of 3 separate patches
+if (userSub && idToken) {
+  fetch(`${API_BASE_URL}/api/face-photos/${userSub}/generated`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ styleId: style.id, views: result }),
+  }).catch(console.error);
+}
+
+  } catch (e: any) {
+      console.error("❌ selectStyle error:", e?.message ?? e);
+    setError("Generation failed. Check your connection and try again.");
+  } finally {
+    setGenerating(false);
   }
+}
+
+async function uriToBase64(uri: string): Promise<string> {
+  // Already a base64 data URI — just strip the prefix
+  if (uri.startsWith("data:")) {
+    return uri.split(",")[1];
+  }
+
+  // Local file path
+  if (!uri.startsWith("http")) {
+    return await readAsStringAsync(uri, { encoding: EncodingType.Base64 });
+  }
+
+  // Remote URL
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
   // What to show in the preview for the active view tab
   const activeOriginal = photos[activeView];
@@ -278,8 +292,8 @@ export default function VirtualTryOnScreen({
                     Generating {activeView} view…
                   </Text>
                   <Text style={styles.generatingHint}>
-                    Generating all 3 views — takes ~15s
-                  </Text>
+  Processing 3 views one by one — takes ~30s
+</Text>
                 </View>
               )}
 
@@ -381,6 +395,12 @@ export default function VirtualTryOnScreen({
             </View>
 
             {/* ── CTAs ── */}
+            <Pressable
+  style={styles.secondaryBtn}
+  onPress={() => navigation.navigate("FaceScan")}
+>
+  <Text style={styles.secondaryBtnText}>🔄 Scan Again</Text>
+</Pressable>
             <Pressable
               style={styles.primaryBtn}
               onPress={() =>

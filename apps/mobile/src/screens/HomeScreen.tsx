@@ -6,15 +6,22 @@ import {
   Text,
   View,
   Image,
+  Dimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { ImageBackground } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { CompositeNavigationProp } from "@react-navigation/native";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
-import { RootStackParamList } from "../navigation/RootNavigator";
+import { RootStackParamList, TabParamList  } from "../navigation/RootNavigator";
+
+const { width } = Dimensions.get("window");
 
 type Props = {
   user: AuthUser | null;
@@ -23,8 +30,13 @@ type Props = {
   onBrowseSalons: () => void;
   onBrowseAppointments: () => void;
 };
-
-type NavProp = NativeStackNavigationProp<RootStackParamList>;
+ 
+// HomeScreen lives inside the Tab navigator, but needs to push root stack screens.
+// CompositeNavigationProp gives us both tab + stack methods.
+type NavProp = CompositeNavigationProp<
+  BottomTabNavigationProp<TabParamList, "HomeTab">,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
 export default function HomeScreen({
   user,
@@ -44,6 +56,10 @@ export default function HomeScreen({
     }
   }
 
+  const firstName = user?.name?.split(" ")[0] ?? "there";
+  const insets = useSafeAreaInsets();
+  const bottomPad = 62 + insets.bottom + 12;
+
   return (
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
@@ -52,80 +68,188 @@ export default function HomeScreen({
       style={{ flex: 1 }}
     >
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.page}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Header ── */}
+          <View style={styles.header}>
             <Image
               source={require("../../assets/logo_cropped.png")}
-              style={styles.logo}
+              style={styles.headerLogo}
               resizeMode="contain"
             />
-            <View style={styles.hero}>
-              <Text style={styles.heroTitle}>
-                Hi{user?.name ? `, ${user.name}` : ""}
-              </Text>
-              <Text style={styles.heroText}>
-                Find your next salon appointment.
-              </Text>
-            </View>
-
-            <Pressable style={styles.primaryButton} onPress={onBrowseSalons}>
-              <Text style={styles.primaryButtonText}>Browse Salons</Text>
-            </Pressable>
-
-            <View style={styles.grid}>
-              <Pressable style={styles.card} onPress={onBrowseAppointments}>
-                <Text style={styles.cardTitle}>My Appointments</Text>
-                <Text style={styles.cardText}>View history</Text>
+            {/* <View style={styles.headerRight}> */}
+              
+              <Pressable onPress={handleLogout} style={styles.avatarBtn}>
+                <LinearGradient
+                  colors={["rgba(42,79,122,0.8)", "rgba(0,59,143,0.6)"]}
+                  style={styles.avatar}
+                >
+                  <Text style={styles.avatarLetter}>
+                    {(user?.name ?? "U")[0].toUpperCase()}
+                  </Text>
+                </LinearGradient>
               </Pressable>
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Profile</Text>
-                <Text style={styles.cardText}>{user?.email ?? "-"}</Text>
+            {/* </View> */}
+          </View>
+          <View style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}>
+                <Text style={styles.greeting}>Good day,</Text>
+                <Text style={styles.userName}>{firstName}!</Text>
+              </View>
+
+          {/* ── Hero Banner ── */}
+          <ImageBackground
+            source={require("../../assets/hero_banner.jpg")}
+            style={styles.heroBanner}
+            imageStyle={styles.heroBannerImage}
+            resizeMode="cover"
+          >
+            <LinearGradient
+              colors={["rgba(2,2,2,0.55)", "rgba(2,2,2,0.55)"]}
+              style={styles.heroBannerOverlay}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+            <View style={styles.heroBannerInner}>
+              <View style={styles.heroTextBlock}>
+                <Text style={styles.heroBannerTag}>✦ BOOK NOW</Text>
+                <Text style={styles.heroBannerTitle}>
+                  Find your{"\n"}perfect look
+                </Text>
+                <Text style={styles.heroBannerSub}>
+                  Discover top salons near you
+                </Text>
               </View>
             </View>
 
-            {/* Mirror CTA — opens camera + AR hair try-on */}
+            <Pressable style={styles.heroCTA} onPress={onBrowseSalons}>
+              <Text style={styles.heroCTAText}>Browse Salons</Text>
+              <Ionicons name="arrow-forward" size={16} color={colors.white} />
+            </Pressable>
+            </LinearGradient>
+          </ImageBackground>
+
+          {/* ── Section: Quick Actions ── */}
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+          <View style={styles.quickRow}>
+            <Pressable style={styles.quickCard} onPress={onBrowseAppointments}>
+              <View style={[styles.quickIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
+                <Ionicons name="calendar" size={22} color={colors.accent} />
+              </View>
+              <Text style={styles.quickLabel}>My{"\n"}Bookings</Text>
+            </Pressable>
+
             <Pressable
-              style={styles.mirrorCard}
-//               onPress={() => navigation.navigate("VirtualTryOn", {  photos: {
+              style={styles.quickCard}
+              onPress={() => navigation.navigate("SalonList")}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.12)" }]}>
+                <Ionicons name="cut" size={22} color={colors.primaryLight} />
+              </View>
+              <Text style={styles.quickLabel}>Salons{"\n"}Nearby</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.quickCard}
+              onPress={() => navigation.navigate("StyleRecommendation")}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: "rgba(244,178,35,0.15)" }]}>
+                <Ionicons name="sparkles" size={22} color={colors.star} />
+              </View>
+              <Text style={styles.quickLabel}>Style{"\n"}Tips</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.quickCard}
+              onPress={() => navigation.navigate("Mirror", {})}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.08)" }]}>
+                <Ionicons name="camera" size={22} color={colors.primaryLight} />
+              </View>
+              <Text style={styles.quickLabel}>Virtual{"\n"}Mirror</Text>
+            </Pressable>
+          </View>
+
+          {/* ── Section: AI Features ── */}
+          <Text style={styles.sectionTitle}>AI Features</Text>
+
+          {/* Virtual Mirror Card */}
+          <Pressable
+            style={styles.featureCard}
+            onPress={() => navigation.navigate("Mirror", {})}
+//             onPress={() => navigation.navigate("VirtualTryOn", {  photos: {
 //   front: "http://localhost:4000/uploads/test-front.jpg",
 //   left:  "http://localhost:4000/uploads/test-left.jpg",
 //   right: "http://localhost:4000/uploads/test-right.jpg",~
 // }, faceShape: "oval", landmarks: [] })}
-onPress={() => navigation.navigate("Mirror")}
+          >
+            <LinearGradient
+              colors={["rgba(20,28,45,0.9)", "rgba(30,42,70,0.7)"]}
+              style={styles.featureCardGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureEmoji}>🪞</Text>
-                <View>
-                  <Text style={styles.featureTitle}>Virtual Mirror</Text>
-                  <Text style={styles.featureSub}>
-                    Try hairstyles live — we'll detect your face shape & recommend styles
+              <View style={styles.featureCardLeft}>
+                <View style={[styles.featureIconCircle, { backgroundColor: "rgba(171,213,255,0.1)" }]}>
+                  <Text style={styles.featureEmoji}>🪞</Text>
+                </View>
+                <View style={styles.featureCardText}>
+                  <Text style={styles.featureCardTitle}>Virtual Mirror</Text>
+                  <Text style={styles.featureCardSub}>
+                    Detect your face shape & try{"\n"}hairstyles live in AR
                   </Text>
                 </View>
               </View>
-              <Text style={styles.featureArrow}>›</Text>
-            </Pressable>
+              <View style={styles.featureArrowWrap}>
+                <Ionicons name="chevron-forward" size={18} color={colors.primaryLight} />
+              </View>
+            </LinearGradient>
+          </Pressable>
 
-            {/* Recommendation CTA — goes straight to results using saved profile */}
-            <Pressable
-              style={styles.recommendCard}
-              onPress={() => navigation.navigate("StyleRecommendation")}
+          {/* Style Recommendation Card */}
+          <Pressable
+            style={styles.featureCardAccent}
+            onPress={() => navigation.navigate("StyleRecommendation")}
+          >
+            <LinearGradient
+              colors={["#2a4f7a", "#003B8F"]}
+              style={styles.featureCardGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
             >
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureEmoji}>✨</Text>
-                <View style={styles.featureTextInner}>
-                  <Text style={styles.featureTitle}>Style Recommendations</Text>
-                  <Text style={styles.featureSub}>
-                    Based on your saved hair profile
+              <View style={styles.featureCardLeft}>
+                <View style={[styles.featureIconCircle, { backgroundColor: "rgba(255,255,255,0.12)" }]}>
+                  <Text style={styles.featureEmoji}>✨</Text>
+                </View>
+                <View style={styles.featureCardText}>
+                  <Text style={[styles.featureCardTitle, { color: colors.white }]}>
+                    Style Recommendations
+                  </Text>
+                  <Text style={[styles.featureCardSub, { color: "rgba(255,255,255,0.7)" }]}>
+                    AI picks based on your{"\n"}saved hair profile
                   </Text>
                 </View>
               </View>
-              <Text style={styles.featureArrow}>›</Text>
-            </Pressable>
+              <View style={[styles.featureArrowWrap, { backgroundColor: "rgba(255,255,255,0.1)" }]}>
+                <Ionicons name="chevron-forward" size={18} color={colors.white} />
+              </View>
+            </LinearGradient>
+          </Pressable>
 
-            <Pressable style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutText}>Logout</Text>
+          {/* ── Profile chip at bottom ── */}
+          <View style={styles.profileChip}>
+            <Ionicons name="person-circle-outline" size={18} color={colors.textMuted} />
+            <Text style={styles.profileChipText} numberOfLines={1}>
+              {user?.email ?? "—"}
+            </Text>
+            <Pressable onPress={handleLogout} style={styles.logoutChipBtn}>
+              <Text style={styles.logoutChipText}>Log out</Text>
             </Pressable>
           </View>
+
+          {/* Bottom padding for tab bar + Android nav bar */}
+          <View style={{ height: bottomPad }} />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -134,83 +258,206 @@ onPress={() => navigation.navigate("Mirror")}
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: 16 },
-  page: {
-    backgroundColor: colors.page,
-    borderRadius: 24,
-    padding: 18,
-    minHeight: "100%",
-  },
-  logo: { width: 150, height: 150 },
-  hero: { marginBottom: 20 },
-  heroTitle: { fontSize: 30, fontWeight: "800", color: colors.text },
-  heroText: { fontSize: 15, color: colors.textSoft, marginTop: 6 },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 20,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  primaryButtonText: { color: colors.white, fontSize: 16, fontWeight: "700" },
-  grid: { gap: 12, marginBottom: 20 },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    padding: 16,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: 6,
-  },
-  cardText: { fontSize: 14, color: colors.textSoft },
+  scroll: { paddingHorizontal: 18, paddingTop: 8 },
 
-  // Mirror card — distinct accent colour to feel special
-  mirrorCard: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  recommendCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 20,
+  // Header
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  featureTextWrap: {
-    flexDirection: "row",
-    alignItems: "center",
+  headerLogo: {
+    width: 80,
+    height: 80,
+  },
+  headerRight: {
     flex: 1,
-    marginRight: 12,
-    gap: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  featureTextInner: { flex: 1 },
-  featureEmoji: { fontSize: 28 },
-  featureTitle: {
+  greeting: {
+    fontSize: 15,
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  userName: { fontSize: 15, fontWeight: "500", textTransform: "uppercase", color: colors.text},
+  avatarBtn: { padding: 2 },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  avatarLetter: { fontSize: 18, fontWeight: "700", color: colors.white },
+
+  // Hero Banner
+  heroBanner: {
+    borderRadius: 22,
+    marginBottom: 28,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    minHeight: 170,
+  },
+  heroBannerImage: {
+    borderRadius: 22,
+  },
+  heroBannerOverlay: {
+    padding: 20,
+    flex: 1,
+  },
+  heroBannerInner: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 18,
+  },
+  heroTextBlock: { flex: 1 },
+  heroBannerTag: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.primaryLight,
+    letterSpacing: 2,
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  heroBannerTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: colors.text,
+    lineHeight: 32,
+    marginBottom: 8,
+  },
+  heroBannerSub: { fontSize: 13, color: colors.textSoft },
+  heroBannerLogo: { width: 80, height: 80, opacity: 0.85, marginLeft: 10 },
+  heroCTA: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    alignSelf: "flex-start",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 30,
+    gap: 6,
+  },
+  heroCTAText: { color: colors.white, fontWeight: "700", fontSize: 14 },
+
+  // Section Title
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+    marginBottom: 12,
+  },
+
+  // Quick Actions
+  quickRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 28,
+  },
+  quickCard: {
+    flex: 1,
+    backgroundColor: "rgba(20,28,45,0.6)",
+    borderRadius: 16,
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    gap: 8,
+  },
+  quickIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: colors.textSoft,
+    textAlign: "center",
+    lineHeight: 14,
+  },
+
+  // Feature Cards
+  featureCard: {
+    borderRadius: 20,
+    marginBottom: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  featureCardAccent: {
+    borderRadius: 20,
+    marginBottom: 20,
+    overflow: "hidden",
+  },
+  featureCardGradient: { padding: 18, flexDirection: "row", alignItems: "center" },
+  featureCardLeft: { flexDirection: "row", alignItems: "center", flex: 1, gap: 14 },
+  featureIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featureEmoji: { fontSize: 26 },
+  featureCardText: { flex: 1 },
+  featureCardTitle: {
     fontSize: 15,
     fontWeight: "700",
     color: colors.text,
-    marginBottom: 3,
+    marginBottom: 4,
   },
-  featureSub: { fontSize: 12, color: colors.textSoft },
-  featureArrow: { fontSize: 22, color: colors.primary, fontWeight: "700" },
-  logoutButton: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    paddingVertical: 12,
+  featureCardSub: {
+    fontSize: 12,
+    color: colors.textSoft,
+    lineHeight: 17,
+  },
+  featureArrowWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(171,213,255,0.08)",
   },
-  logoutText: { color: colors.text, fontWeight: "700" },
+
+  // Profile chip
+  profileChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(20,28,45,0.5)",
+    borderRadius: 30,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  profileChipText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  logoutChipBtn: {
+    backgroundColor: "rgba(171,213,255,0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  logoutChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primaryLight,
+  },
 });
