@@ -61,6 +61,8 @@ model Customer {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   appointments Appointment[]
+  loyaltyPoints  CustomerPoints?
+  redemptions    RewardRedemption[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -113,6 +115,8 @@ model Salon {
 
   adminUserId String @unique
   admin       User   @relation("SalonAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  loyaltyProgram LoyaltyProgram?
 
   stylists      Stylist[]
   services      Service[]
@@ -339,4 +343,109 @@ model PendingPayment {
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
 
   createdAt DateTime @default(now())
+}
+
+model LoyaltyProgram {
+  id      String @id @default(uuid())
+  salonId String @unique
+  salon   Salon  @relation(fields: [salonId], references: [id], onDelete: Cascade)
+
+  // Points rules — stored as separate rows for flexibility
+  rules   LoyaltyRule[]
+  tiers   LoyaltyTier[]
+  rewards LoyaltyReward[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Each rule is one earning action, e.g. "service_completed" = 10 pts
+model LoyaltyRule {
+  id          String         @id @default(uuid())
+  programId   String
+  program     LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  action      String  // "service_completed" | "review_submitted" | "monthly_visit" | "spending_per_100"
+  label       String  // display name
+  description String
+  points      Int
+  iconKey     String  // "check" | "message" | "calendar" | "dollar"  (for frontend icon map)
+  colorKey    String  // "green" | "blue" | "purple" | "gray"         (for frontend color map)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([programId, action])
+}
+
+// Tiers are ordered by sortOrder ascending (0 = base/Bronze)
+model LoyaltyTier {
+  id          String         @id @default(uuid())
+  programId   String
+  program     LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  name        String
+  threshold   Int     // min points to reach this tier
+  multiplier  Float   // point earning multiplier
+  benefits    String[]
+  sortOrder   Int     // 0-based, determines color assignment on frontend
+
+  customerPoints CustomerPoints[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([programId, name])
+  @@unique([programId, sortOrder])
+  @@index([programId])
+}
+
+model LoyaltyReward {
+  id          String         @id @default(uuid())
+  programId   String
+  program     LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  name         String
+  description  String
+  pointsCost   Int
+  tierRequired String  // tier name — matched at redemption time
+  active       Boolean @default(true)
+
+  redemptions RewardRedemption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([programId])
+}
+
+// Per-customer points balance + current tier
+model CustomerPoints {
+  id          String   @id @default(uuid())
+  customerId  String   @unique
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  tierId      String?
+  tier        LoyaltyTier? @relation(fields: [tierId], references: [id])
+
+  totalPoints    Int @default(0)
+  lifetimePoints Int @default(0)  // never decremented, used for tier calculation
+
+  updatedAt DateTime @updatedAt
+}
+
+// Log of every redemption
+model RewardRedemption {
+  id         String        @id @default(uuid())
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  rewardId   String
+  reward     LoyaltyReward @relation(fields: [rewardId], references: [id], onDelete: Restrict)
+
+  pointsSpent Int
+  redeemedAt  DateTime @default(now())
+
+  @@index([customerId])
+  @@index([rewardId])
 }

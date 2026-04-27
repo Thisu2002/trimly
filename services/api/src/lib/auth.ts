@@ -11,7 +11,6 @@ export async function verifyIdToken(idToken: string) {
     issuer: `https://${AUTH0_DOMAIN}/`,
     audience: process.env.AUTH0_CLIENT_ID,
   });
-  console.log("Token payload:", payload);
 
   return payload;
 }

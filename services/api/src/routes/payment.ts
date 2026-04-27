@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
-import { overlaps } from "../lib/booking";
+import { overlaps } from "../utils/booking";
 import md5 from "md5";
 
 const router = Router();

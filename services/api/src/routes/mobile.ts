@@ -7,7 +7,7 @@ import {
   getDayOfWeek,
   overlaps,
   toDateOnly,
-} from "../lib/booking";
+} from "../utils/booking";
 import md5 from "md5";
 
 const router = Router();
