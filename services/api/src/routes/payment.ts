@@ -1,3 +1,4 @@
+//D:\trimly\services\api\src\routes\payment.ts
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { overlaps } from "../utils/booking";
@@ -52,7 +53,7 @@ router.post("/notify", async (req, res) => {
       const serviceMap = new Map(services.map((s) => [s.id, s]));
 
       const customer = await prisma.customer.findUnique({
-        where: { userId: pending.userId },
+        where: { id: pending.customerId },
       });
 
       if (!customer) {

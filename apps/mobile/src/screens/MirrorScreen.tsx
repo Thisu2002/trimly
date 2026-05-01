@@ -90,33 +90,35 @@ export default function MirrorScreen({ route, navigation: navProp, idToken, user
 
   const [step, setStep] = useState<Step>("camera");
 
-  // On mount: check if user already has face photos → skip straight to VirtualTryOn
-useEffect(() => {
-  async function checkExistingPhotos() {
-    if (!userSub) return;
-    if (detectedFaceShape) return; // came from a fresh scan, don't redirect
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/face-photos/${userSub}`, {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // Has existing originals — go straight to VirtualTryOn
-        navigation.replace("VirtualTryOn", {
-          faceShape: data.faceShape ?? detectedFaceShape ?? "oval",
-          landmarks: landmarks ?? [],
-          photos: { front: data.frontPhoto, left: data.leftPhoto, right: data.rightPhoto },
-          existingGenerated: data.generatedPhotos ?? {},
-          userSub,
-          idToken,
-        });
-      }
-    } catch (e) {
-      // No photos or error — stay on current screen
-    }
-  }
-  checkExistingPhotos();
-}, []); // run once on mount
+{/*DISABLED DUE TO PRIVACY CONCERNS
+// On mount: check if user already has face photos → skip straight to VirtualTryOn
+// useEffect(() => {
+//   async function checkExistingPhotos() {
+//     if (!userSub) return;
+//     if (detectedFaceShape) return; // came from a fresh scan, don't redirect
+//     try {
+//       const res = await fetch(`${API_BASE_URL}/api/face-photos/${userSub}`, {
+//         headers: { Authorization: `Bearer ${idToken}` },
+//       });
+//       if (res.ok) {
+//         const data = await res.json();
+//         // Has existing originals — go straight to VirtualTryOn
+//         navigation.replace("VirtualTryOn", {
+//           faceShape: data.faceShape ?? detectedFaceShape ?? "oval",
+//           landmarks: landmarks ?? [],
+//           photos: { front: data.frontPhoto, left: data.leftPhoto, right: data.rightPhoto },
+//           existingGenerated: data.generatedPhotos ?? {},
+//           userSub,
+//           idToken,
+//         });
+//       }
+//     } catch (e) {
+//       // No photos or error — stay on current screen
+//     }
+//   }
+//   checkExistingPhotos();
+// }, []); // run once on mount
+*/}
 
   // Profile fields
   const [faceShape, setFaceShape] = useState<string | null>(detectedFaceShape ?? null);

@@ -17,7 +17,15 @@
           "enableFrameProcessors": true
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Trimly to save hairstyle photos to your gallery.",
+          "savePhotosPermission": "Allow Trimly to save hairstyle photos to your gallery.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
     ],
     "version": "1.0.0",
     "orientation": "portrait",

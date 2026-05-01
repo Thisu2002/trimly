@@ -49,9 +49,6 @@ model User {
   adminSalon      Salon?   @relation("SalonAdmin")
   stylistProfile  Stylist?
   customerProfile Customer?
-  hairProfile     UserHairProfile?
-  facePhotos      UserFacePhotos?
-  pendingPayments PendingPayment[]
 }
 
 model Customer {
@@ -61,6 +58,9 @@ model Customer {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   appointments Appointment[]
+  hairProfile     UserHairProfile?
+  facePhotos      UserFacePhotos?
+  pendingPayments PendingPayment[]
   loyaltyPoints  CustomerPoints?
   redemptions    RewardRedemption[]
 
@@ -71,8 +71,8 @@ model Customer {
 model UserHairProfile {
   id        String   @id @default(uuid())
 
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerId String   @unique
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   faceShape  String?  // oval | round | square | heart | diamond | oblong
   hairType   String?  // straight | wavy | curly | coily
@@ -90,8 +90,8 @@ model UserHairProfile {
 model UserFacePhotos {
   id        String   @id @default(uuid())
 
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerId String   @unique
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   frontPhoto String  // base64 data URL or URL
   leftPhoto  String
@@ -327,8 +327,8 @@ model Payment {
 model PendingPayment {
   id String @id @default(cuid())
 
-  userId String
-  user   User @relation(fields: [userId], references: [id])
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
 
   salonId String
   date    DateTime

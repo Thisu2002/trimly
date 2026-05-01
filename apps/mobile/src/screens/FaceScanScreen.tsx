@@ -177,7 +177,7 @@ export default function FaceScanScreen({ navigation, onScanComplete, idToken, us
     console.log("Advancing to step:", step);
   }
 
-  async function processLandmarks() {
+async function processLandmarks() {
     const sets = landmarkSets.current;
     if (sets.length === 0) {
       Alert.alert("Scan failed", "No face data captured. Please try again.");
@@ -204,40 +204,40 @@ export default function FaceScanScreen({ navigation, onScanComplete, idToken, us
       right: capturedPhotos.current.right ?? "",
     };
 
-    // Convert URIs to base64, save to DB (deletes old + generated automatically via upsert)
-    if (userSub && idToken) {
-      try {
-        const toBase64 = async (uri: string) => {
-          const r = await fetch(uri);
-          const blob = await r.blob();
-          return new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        };
-        const [front64, left64, right64] = await Promise.all([
-          toBase64(photos.front),
-          toBase64(photos.left),
-          toBase64(photos.right),
-        ]);
-        await fetch(`${API_BASE_URL}/api/face-photos/${userSub}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            frontPhoto: front64,
-            leftPhoto: left64,
-            rightPhoto: right64,
-          }),
-        });
-      } catch (e) {
-        console.error("Failed to save face photos:", e);
-      }
-    }
+    // PHOTO STORAGE DISABLED
+    // if (userSub && idToken) {
+    //   try {
+    //     const toBase64 = async (uri: string) => {
+    //       const r = await fetch(uri);
+    //       const blob = await r.blob();
+    //       return new Promise<string>((resolve, reject) => {
+    //         const reader = new FileReader();
+    //         reader.onloadend = () => resolve(reader.result as string);
+    //         reader.onerror = reject;
+    //         reader.readAsDataURL(blob);
+    //       });
+    //     };
+    //     const [front64, left64, right64] = await Promise.all([
+    //       toBase64(photos.front),
+    //       toBase64(photos.left),
+    //       toBase64(photos.right),
+    //     ]);
+    //     await fetch(`${API_BASE_URL}/api/face-photos/${userSub}`, {
+    //       method: "POST",
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //         Authorization: `Bearer ${idToken}`,
+    //       },
+    //       body: JSON.stringify({
+    //         frontPhoto: front64,
+    //         leftPhoto: left64,
+    //         rightPhoto: right64,
+    //       }),
+    //     });
+    //   } catch (e) {
+    //     console.error("Failed to save face photos:", e);
+    //   }
+    // }
 
     setStep("done");
     onScanComplete(faceShape, merged, photos);

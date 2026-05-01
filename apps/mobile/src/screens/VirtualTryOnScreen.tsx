@@ -5,6 +5,7 @@
 
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   Pressable,
@@ -17,11 +18,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState, useRef, useEffect } from "react";
+import * as MediaLibrary from "expo-media-library";
+import * as FileSystem from "expo-file-system/legacy";
+import { Ionicons } from "@expo/vector-icons";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { colors } from "../theme/colors";
 import { API_BASE_URL } from "../config/api";
 import { HAIR_STYLES_3D, HairStyle3D } from "../ar/hairStyles3D";
-import { readAsStringAsync, EncodingType } from "expo-file-system/legacy";
 
 type Props = NativeStackScreenProps<RootStackParamList, "VirtualTryOn"> & {
   faceShape: string;
@@ -47,13 +50,13 @@ export default function VirtualTryOnScreen({
   landmarks,
 }: Props) {
   const photos = route.params.photos;
+  // const photos ={
+  // front: "http://localhost:4000/uploads/test-front.jpg",
+  // left:  "http://localhost:4000/uploads/test-left.jpg",
+  // right: "http://localhost:4000/uploads/test-right.jpg"
+  // }
   const userSub = route.params.userSub;
   const idToken = route.params.idToken;
-  //   const photos = {
-  //   front: "http://localhost:4000/uploads/test-front.jpg",
-  //   left:  "http://localhost:4000/uploads/test-left.jpg",
-  //   right: "http://localhost:4000/uploads/test-right.jpg",
-  // };
 
   const [genderFilter, setGenderFilter] = useState<"female" | "male">("female");
   const [activeView, setActiveView] = useState<ViewTab>("front");
@@ -62,23 +65,38 @@ export default function VirtualTryOnScreen({
   );
   const [showAll, setShowAll] = useState(false);
 
-  // Cache generated images per styleId so we don't re-generate
   const cache = useRef<Record<string, GeneratedImages>>({});
+  // ── TEST MOCK — remove before production ──
+  // Preloads cache with public images so download can be tested without Claid credits
+  // useEffect(() => {
+  //   const MOCK_STYLE_ID = HAIR_STYLES_3D.filter((s) => s.gender === "female")[0].id;
+  //   const mockImages: GeneratedImages = {
+  //     front: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600",
+  //     left:  "https://images.unsplash.com/photo-1488716820095-cbe80883c496?w=600",
+  //     right: "https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?w=600",
+  //   };
+  //   cache.current[MOCK_STYLE_ID] = mockImages;
+  //   setGenerated(mockImages);
+  // }, []);
   const [generated, setGenerated] = useState<GeneratedImages>({});
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
-  // Pre-populate cache from DB-saved generated photos
-  useEffect(() => {
-    const existing = route.params.existingGenerated;
-    if (existing) {
-      cache.current = { ...existing };
-      // If the initially selected style already has generated images, show them
-      if (existing[selected.id]) {
-        setGenerated(existing[selected.id]);
-      }
-    }
-  }, []);
+  // Request media library permission on mount
+  const [mediaPermission, requestMediaPermission] =
+    MediaLibrary.usePermissions();
+
+  // PHOTO STORAGE DISABLED — no cache pre-population from DB
+  // useEffect(() => {
+  //   const existing = route.params.existingGenerated;
+  //   if (existing) {
+  //     cache.current = { ...existing };
+  //     if (existing[selected.id]) {
+  //       setGenerated(existing[selected.id]);
+  //     }
+  //   }
+  // }, []);
 
   const byGender = HAIR_STYLES_3D.filter((s) => s.gender === genderFilter);
   const recommended = byGender.filter((s) =>
@@ -97,95 +115,138 @@ export default function VirtualTryOnScreen({
   }
 
   async function selectStyle(style: HairStyle3D) {
-    console.log(`Selected style: ${style.name} (ID: ${style.id})`);
-  setSelected(style);
-  setError(null);
+    setSelected(style);
+    setError(null);
 
-  if (cache.current[style.id]) {
-    setGenerated(cache.current[style.id]);
-    return;
-  }
-
-  setGenerated({});
-  setGenerating(true);
-
-  try {
-    console.log("Checking cache for style ID:", style.id);
-    const [frontB64, leftB64, rightB64] = await Promise.all([
-      uriToBase64(photos.front),
-      uriToBase64(photos.left),
-      uriToBase64(photos.right),
-    ]);
-
-    console.log("Converted photos to base64, sending generation request for style ID:", style.id);
-
-    const res = await fetch(`${API_BASE_URL}/api/hair-generate/generate-all`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        photos: { front: frontB64, left: leftB64, right: rightB64 },
-        styleId: style.id,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error ?? `HTTP ${res.status}`);
+    if (cache.current[style.id]) {
+      setGenerated(cache.current[style.id]);
+      return;
     }
 
-    const data = await res.json();
-    const result: GeneratedImages = {
-      front: data.front,
-      left:  data.left,
-      right: data.right,
-    };
+    setGenerated({});
+    setGenerating(true);
 
-    cache.current[style.id] = result;
-    setGenerated(result);
+    try {
+      const [frontB64, leftB64, rightB64] = await Promise.all([
+        uriToBase64(photos.front),
+        uriToBase64(photos.left),
+        uriToBase64(photos.right),
+      ]);
 
-    // Persist to DB
-    // Persist to DB — send all 3 in one request instead of 3 separate patches
-if (userSub && idToken) {
-  fetch(`${API_BASE_URL}/api/face-photos/${userSub}/generated`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-    body: JSON.stringify({ styleId: style.id, views: result }),
-  }).catch(console.error);
-}
+      const res = await fetch(
+        `${API_BASE_URL}/api/hair-generate/generate-all`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            photos: { front: frontB64, left: leftB64, right: rightB64 },
+            styleId: style.id,
+          }),
+        },
+      );
 
-  } catch (e: any) {
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const result: GeneratedImages = {
+        front: data.front,
+        left: data.left,
+        right: data.right,
+      };
+
+      cache.current[style.id] = result;
+      setGenerated(result);
+
+      // PHOTO STORAGE DISABLED
+      // if (userSub && idToken) {
+      //   fetch(`${API_BASE_URL}/api/face-photos/${userSub}/generated`, {
+      //     method: "PATCH",
+      //     headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+      //     body: JSON.stringify({ styleId: style.id, views: result }),
+      //   }).catch(console.error);
+      // }
+    } catch (e: any) {
       console.error("❌ selectStyle error:", e?.message ?? e);
-    setError("Generation failed. Check your connection and try again.");
-  } finally {
-    setGenerating(false);
-  }
-}
-
-async function uriToBase64(uri: string): Promise<string> {
-  // Already a base64 data URI — just strip the prefix
-  if (uri.startsWith("data:")) {
-    return uri.split(",")[1];
+      setError("Generation failed. Check your connection and try again.");
+    } finally {
+      setGenerating(false);
+    }
   }
 
-  // Local file path
-  if (!uri.startsWith("http")) {
-    return await readAsStringAsync(uri, { encoding: EncodingType.Base64 });
+  async function uriToBase64(uri: string): Promise<string> {
+    if (uri.startsWith("data:")) return uri.split(",")[1];
+    if (!uri.startsWith("http")) {
+      return await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    }
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
-  // Remote URL
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
+  async function downloadCurrentPhoto() {
+    const uriToSave = generated[activeView] ?? photos[activeView];
+    if (!uriToSave) return;
 
-  // What to show in the preview for the active view tab
+    setDownloading(true);
+    try {
+      // Ask for permission if not granted
+      if (!mediaPermission?.granted) {
+        const { granted } = await requestMediaPermission();
+        if (!granted) {
+          Alert.alert(
+            "Permission needed",
+            "Allow access to save photos to your gallery.",
+          );
+          return;
+        }
+      }
+
+      let localUri: string;
+
+      if (uriToSave.startsWith("data:")) {
+        // base64 → write to a temp file first
+        const base64Data = uriToSave.split(",")[1];
+        const isGenerated = !!generated[activeView];
+        const filename = `trimly_${selected.id}_${activeView}_${Date.now()}.png`;
+        const tempPath = `${FileSystem.cacheDirectory}${filename}`;
+        await FileSystem.writeAsStringAsync(tempPath, base64Data, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        localUri = tempPath;
+      } else {
+        // Remote URL → download first
+        const filename = `trimly_${activeView}_${Date.now()}.jpg`;
+        const tempPath = `${FileSystem.cacheDirectory}${filename}`;
+        const downloadResult = await FileSystem.downloadAsync(
+          uriToSave,
+          tempPath,
+        );
+        localUri = downloadResult.uri;
+      }
+
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      Alert.alert("Saved!", "Photo saved to your gallery.");
+    } catch (e: any) {
+      console.error("Download error:", e);
+      Alert.alert("Save failed", "Could not save the photo. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   const activeOriginal = photos[activeView];
   const activeGenerated = generated[activeView];
+  const canDownload = !generating && (!!activeGenerated || !!activeOriginal);
 
   const VIEW_TABS: { key: ViewTab; label: string }[] = [
     { key: "front", label: "Front" },
@@ -268,14 +329,12 @@ async function uriToBase64(uri: string): Promise<string> {
                 { width: PREVIEW_W, height: PREVIEW_H },
               ]}
             >
-              {/* Always show original as background */}
               <Image
                 source={{ uri: activeOriginal }}
                 style={StyleSheet.absoluteFill}
                 resizeMode="cover"
               />
 
-              {/* AI generated result overlay once ready */}
               {activeGenerated && !generating && (
                 <Image
                   source={{ uri: activeGenerated }}
@@ -284,7 +343,6 @@ async function uriToBase64(uri: string): Promise<string> {
                 />
               )}
 
-              {/* Loading overlay */}
               {generating && (
                 <View style={styles.generatingOverlay}>
                   <ActivityIndicator size="large" color={colors.primary} />
@@ -292,12 +350,11 @@ async function uriToBase64(uri: string): Promise<string> {
                     Generating {activeView} view…
                   </Text>
                   <Text style={styles.generatingHint}>
-  Processing 3 views one by one — takes ~30s
-</Text>
+                    Processing 3 views one by one — takes ~30s
+                  </Text>
                 </View>
               )}
 
-              {/* Error state */}
               {error && !generating && (
                 <View style={styles.generatingOverlay}>
                   <Text style={styles.errorText}>{error}</Text>
@@ -310,7 +367,6 @@ async function uriToBase64(uri: string): Promise<string> {
                 </View>
               )}
 
-              {/* "Original" / "Generated" label */}
               <View style={styles.previewBadge}>
                 <Text style={styles.previewBadgeText}>
                   {generating
@@ -321,10 +377,24 @@ async function uriToBase64(uri: string): Promise<string> {
                 </Text>
               </View>
 
-              {/* Style name */}
               <View style={styles.styleNameBadge}>
                 <Text style={styles.styleNameText}>{selected.name}</Text>
               </View>
+
+              {/* ── Download button on the photo ── */}
+              {canDownload && (
+                <Pressable
+                  style={styles.downloadBtn}
+                  onPress={downloadCurrentPhoto}
+                  disabled={downloading}
+                >
+                  {downloading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons name="download-outline" size={20} color="#fff" />
+                  )}
+                </Pressable>
+              )}
             </View>
 
             {/* ── 3-view strip (thumbnails) ── */}
@@ -396,13 +466,14 @@ async function uriToBase64(uri: string): Promise<string> {
 
             {/* ── CTAs ── */}
             <Pressable
-  style={styles.secondaryBtn}
-  onPress={() => navigation.navigate("FaceScan")}
->
-  <Text style={styles.secondaryBtnText}>🔄 Scan Again</Text>
-</Pressable>
+              style={styles.secondaryBtn}
+              onPress={() => navigation.navigate("FaceScan")}
+            >
+              <Text style={styles.secondaryBtnText}>🔄 Scan Again</Text>
+            </Pressable>
+
             <Pressable
-              style={styles.primaryBtn}
+              style={[styles.primaryBtn, { marginTop: 10 }]}
               onPress={() =>
                 navigation.navigate("Mirror", {
                   detectedFaceShape: faceShape,
@@ -416,7 +487,7 @@ async function uriToBase64(uri: string): Promise<string> {
             </Pressable>
 
             <Pressable
-              style={styles.secondaryBtn}
+              style={[styles.secondaryBtn, { marginTop: 10 }]}
               onPress={() => navigation.navigate("StyleRecommendation")}
             >
               <Text style={styles.secondaryBtnText}>
@@ -455,7 +526,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "capitalize",
   },
-
   genderRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   genderBtn: {
     flex: 1,
@@ -472,7 +542,6 @@ const styles = StyleSheet.create({
   },
   genderBtnText: { fontSize: 14, fontWeight: "700", color: colors.textSoft },
   genderBtnTextActive: { color: colors.white },
-
   viewTabRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
   viewTab: {
     flex: 1,
@@ -489,7 +558,6 @@ const styles = StyleSheet.create({
   },
   viewTabText: { fontSize: 13, fontWeight: "600", color: colors.textSoft },
   viewTabTextActive: { color: colors.primary, fontWeight: "700" },
-
   photoWrap: {
     alignSelf: "center",
     borderRadius: 20,
@@ -498,7 +566,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     position: "relative",
   },
-
   generatingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -522,7 +589,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   retryBtnText: { color: colors.white, fontWeight: "700" },
-
   previewBadge: {
     position: "absolute",
     top: 12,
@@ -533,7 +599,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   previewBadgeText: { color: "#fff", fontSize: 11, fontWeight: "600" },
-
   styleNameBadge: {
     position: "absolute",
     bottom: 12,
@@ -544,7 +609,17 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   styleNameText: { color: "#fff", fontWeight: "700", fontSize: 13 },
-
+  downloadBtn: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    minWidth: 64,
+    alignItems: "center",
+  },
   thumbRow: {
     flexDirection: "row",
     gap: 8,
@@ -567,7 +642,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     backgroundColor: colors.card,
   },
-
   sectionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -583,7 +657,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   toggleText: { fontSize: 12, color: colors.primary, fontWeight: "700" },
-
   styleScroll: { gap: 10, paddingBottom: 4, marginBottom: 20 },
   styleChip: {
     paddingHorizontal: 14,
@@ -607,7 +680,6 @@ const styles = StyleSheet.create({
   },
   styleChipTextSelected: { color: colors.white },
   styleLength: { fontSize: 10, color: colors.textSoft, marginTop: 2 },
-
   descCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -621,7 +693,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   descText: { fontSize: 13, color: colors.textSoft, lineHeight: 20 },
-
   primaryBtn: {
     backgroundColor: colors.primary,
     borderRadius: 20,

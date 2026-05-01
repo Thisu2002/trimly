@@ -1,3 +1,4 @@
+//D:\trimly\services\api\src\routes\mobile.ts
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { verifyIdToken } from "../lib/auth";
@@ -143,7 +144,7 @@ router.post("/slots", async (req, res) => {
     const rawSlots = generateSlots(
       hours.openTime,
       hours.closeTime,
-      hours.slotDuration
+      hours.slotDuration,
     );
 
     const slots = rawSlots.map((startTime) => ({
@@ -223,12 +224,12 @@ router.post("/stylists/available", async (req, res) => {
 
       const availableStylists = stylists.filter((stylist) => {
         const canDoService = stylist.services.some(
-          (s) => s.serviceId === service.id
+          (s) => s.serviceId === service.id,
         );
         if (!canDoService) return false;
 
         const shift = stylist.weeklyShifts.find(
-          (x) => x.dayOfWeek === dayOfWeek && !x.isOff
+          (x) => x.dayOfWeek === dayOfWeek && !x.isOff,
         );
         if (!shift) return false;
 
@@ -251,7 +252,7 @@ router.post("/stylists/available", async (req, res) => {
             segment.startTime,
             segment.endTime,
             as.startTime,
-            as.endTime
+            as.endTime,
           );
         });
 
@@ -282,27 +283,29 @@ router.post("/stylists/available", async (req, res) => {
 
 router.post("/initiate-payment", async (req, res) => {
   try {
-    const {
-      idToken,
-      salonId,
-      date,
-      startTime,
-      serviceAssignments,
-    } = req.body as {
-      idToken?: string;
-      salonId?: string;
-      date?: string;
-      startTime?: string;
-      serviceAssignments?: {
-        serviceId: string;
-        stylistId: string;
-        sequence: number;
-      }[];
-    };
+    const { idToken, salonId, date, startTime, serviceAssignments } =
+      req.body as {
+        idToken?: string;
+        salonId?: string;
+        date?: string;
+        startTime?: string;
+        serviceAssignments?: {
+          serviceId: string;
+          stylistId: string;
+          sequence: number;
+        }[];
+      };
 
-    if (!idToken || !salonId || !date || !startTime || !serviceAssignments?.length) {
+    if (
+      !idToken ||
+      !salonId ||
+      !date ||
+      !startTime ||
+      !serviceAssignments?.length
+    ) {
       return res.status(400).json({
-        error: "idToken, salonId, date, startTime and serviceAssignments are required",
+        error:
+          "idToken, salonId, date, startTime and serviceAssignments are required",
       });
     }
 
@@ -337,7 +340,9 @@ router.post("/initiate-payment", async (req, res) => {
     });
 
     if (services.length !== serviceAssignments.length) {
-      return res.status(400).json({ error: "Some selected services are invalid" });
+      return res
+        .status(400)
+        .json({ error: "Some selected services are invalid" });
     }
 
     const serviceMap = new Map(services.map((s) => [s.id, s]));
@@ -356,7 +361,7 @@ router.post("/initiate-payment", async (req, res) => {
 
     for (const item of serviceAssignments) {
       const segment = segments.find(
-        (s) => s.serviceId === item.serviceId && s.sequence === item.sequence
+        (s) => s.serviceId === item.serviceId && s.sequence === item.sequence,
       )!;
 
       const conflict = await prisma.appointmentService.findFirst({
@@ -376,7 +381,7 @@ router.post("/initiate-payment", async (req, res) => {
           segment.startTime,
           segment.endTime,
           conflict.startTime,
-          conflict.endTime
+          conflict.endTime,
         )
       ) {
         return res.status(400).json({
@@ -385,14 +390,25 @@ router.post("/initiate-payment", async (req, res) => {
       }
     }
 
+    const customer = await prisma.customer.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!customer) {
+      return res.status(500).json({ error: "Customer profile missing" });
+    }
+
     const pendingPayment = await prisma.pendingPayment.create({
       data: {
-        userId: user.id,
+        customerId: customer.id,
         salonId,
         date: toDateOnly(date),
         startTime,
         totalLkr,
-        bookingSnapshot: JSON.stringify({ serviceAssignments, segments: segments.map(s => s) }),
+        bookingSnapshot: JSON.stringify({
+          serviceAssignments,
+          segments: segments.map((s) => s),
+        }),
       },
     });
 
@@ -402,16 +418,18 @@ router.post("/initiate-payment", async (req, res) => {
     const hashedSecret = md5(merchantSecret).toUpperCase();
     const amountFormatted = parseFloat(totalLkr.toString()).toFixed(2);
     const hash = md5(
-      merchantId + pendingPayment.id + amountFormatted + "LKR" + hashedSecret
+      merchantId + pendingPayment.id + amountFormatted + "LKR" + hashedSecret,
     ).toUpperCase();
 
-    const notifyUrl = process.env.PAYHERE_NOTIFY_URL || "https://MY_NGROK_URL/api/payment/notify";
+    const notifyUrl =
+      process.env.PAYHERE_NOTIFY_URL ||
+      "https://MY_NGROK_URL/api/payment/notify";
 
     const paymentData = {
       sandbox: true,
       merchant_id: merchantId,
       notify_url: notifyUrl,
-      order_id: pendingPayment.id, 
+      order_id: pendingPayment.id,
       items: "Salon Booking",
       amount: amountFormatted,
       currency: "LKR",

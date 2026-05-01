@@ -29,6 +29,7 @@ type Props = {
   onLogout: () => void;
   onBrowseSalons: () => void;
   onBrowseAppointments: () => void;
+  onOpenLoyalty: () => void;
 };
  
 // HomeScreen lives inside the Tab navigator, but needs to push root stack screens.
@@ -43,6 +44,7 @@ export default function HomeScreen({
   onLogout,
   onBrowseSalons,
   onBrowseAppointments,
+  onOpenLoyalty,
 }: Props) {
   const navigation = useNavigation<NavProp>();
 
@@ -79,8 +81,18 @@ export default function HomeScreen({
               style={styles.headerLogo}
               resizeMode="contain"
             />
-            {/* <View style={styles.headerRight}> */}
-              
+            <View style={styles.headerRight}>
+              {/* FIX: real rewards button navigating to LoyaltyScreen */}
+              <Pressable onPress={onOpenLoyalty} style={styles.rewardsBtn}>
+                <LinearGradient
+                  colors={["rgba(42,79,122,0.6)", "rgba(0,59,143,0.4)"]}
+                  style={styles.rewardsBtnInner}
+                >
+                  <Ionicons name="gift-outline" size={18} color={colors.primaryLight} />
+                  <Text style={styles.rewardsBtnLabel}>Rewards</Text>
+                </LinearGradient>
+              </Pressable>
+
               <Pressable onPress={handleLogout} style={styles.avatarBtn}>
                 <LinearGradient
                   colors={["rgba(42,79,122,0.8)", "rgba(0,59,143,0.6)"]}
@@ -91,7 +103,7 @@ export default function HomeScreen({
                   </Text>
                 </LinearGradient>
               </Pressable>
-            {/* </View> */}
+            </View>
           </View>
           <View style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}>
                 <Text style={styles.greeting}>Good day,</Text>
@@ -135,7 +147,7 @@ export default function HomeScreen({
           <View style={styles.quickRow}>
             <Pressable style={styles.quickCard} onPress={onBrowseAppointments}>
               <View style={[styles.quickIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
-                <Ionicons name="calendar" size={22} color={colors.accent} />
+                <Ionicons name="calendar-outline" size={22} color={colors.accent} />
               </View>
               <Text style={styles.quickLabel}>My{"\n"}Bookings</Text>
             </Pressable>
@@ -145,7 +157,7 @@ export default function HomeScreen({
               onPress={() => navigation.navigate("SalonList")}
             >
               <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.12)" }]}>
-                <Ionicons name="cut" size={22} color={colors.primaryLight} />
+                <Ionicons name="cut-outline" size={22} color={colors.primaryLight} />
               </View>
               <Text style={styles.quickLabel}>Salons{"\n"}Nearby</Text>
             </Pressable>
@@ -155,7 +167,7 @@ export default function HomeScreen({
               onPress={() => navigation.navigate("StyleRecommendation")}
             >
               <View style={[styles.quickIcon, { backgroundColor: "rgba(244,178,35,0.15)" }]}>
-                <Ionicons name="sparkles" size={22} color={colors.star} />
+                <Ionicons name="sparkles-outline" size={22} color={colors.star} />
               </View>
               <Text style={styles.quickLabel}>Style{"\n"}Tips</Text>
             </Pressable>
@@ -165,7 +177,7 @@ export default function HomeScreen({
               onPress={() => navigation.navigate("Mirror", {})}
             >
               <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.08)" }]}>
-                <Ionicons name="camera" size={22} color={colors.primaryLight} />
+                <Ionicons name="camera-outline" size={22} color={colors.primaryLight} />
               </View>
               <Text style={styles.quickLabel}>Virtual{"\n"}Mirror</Text>
             </Pressable>
@@ -178,11 +190,6 @@ export default function HomeScreen({
           <Pressable
             style={styles.featureCard}
             onPress={() => navigation.navigate("Mirror", {})}
-//             onPress={() => navigation.navigate("VirtualTryOn", {  photos: {
-//   front: "http://localhost:4000/uploads/test-front.jpg",
-//   left:  "http://localhost:4000/uploads/test-left.jpg",
-//   right: "http://localhost:4000/uploads/test-right.jpg",~
-// }, faceShape: "oval", landmarks: [] })}
           >
             <LinearGradient
               colors={["rgba(20,28,45,0.9)", "rgba(30,42,70,0.7)"]}
@@ -192,7 +199,7 @@ export default function HomeScreen({
             >
               <View style={styles.featureCardLeft}>
                 <View style={[styles.featureIconCircle, { backgroundColor: "rgba(171,213,255,0.1)" }]}>
-                  <Text style={styles.featureEmoji}>🪞</Text>
+                <Ionicons name="camera-outline" size={30} color={colors.primaryLight} />
                 </View>
                 <View style={styles.featureCardText}>
                   <Text style={styles.featureCardTitle}>Virtual Mirror</Text>
@@ -220,7 +227,7 @@ export default function HomeScreen({
             >
               <View style={styles.featureCardLeft}>
                 <View style={[styles.featureIconCircle, { backgroundColor: "rgba(255,255,255,0.12)" }]}>
-                  <Text style={styles.featureEmoji}>✨</Text>
+                  <Ionicons name="sparkles-outline" size={30} color={colors.primaryLight} />
                 </View>
                 <View style={styles.featureCardText}>
                   <Text style={[styles.featureCardTitle, { color: colors.white }]}>
@@ -266,23 +273,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerLogo: {
-    width: 80,
-    height: 80,
-  },
+  headerLogo: { width: 80, height: 80 },
   headerRight: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 10,
   },
+
+  // Rewards button (FIX: replaces the broken <Text>Rewards Icon</Text>)
+  rewardsBtn: {
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  rewardsBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  rewardsBtnLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primaryLight,
+  },
+
   greeting: {
     fontSize: 15,
     color: colors.textMuted,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
-  userName: { fontSize: 15, fontWeight: "500", textTransform: "uppercase", color: colors.text},
+  userName: {
+    fontSize: 15,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    color: colors.text,
+  },
   avatarBtn: { padding: 2 },
   avatar: {
     width: 42,
@@ -304,13 +333,8 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     minHeight: 170,
   },
-  heroBannerImage: {
-    borderRadius: 22,
-  },
-  heroBannerOverlay: {
-    padding: 20,
-    flex: 1,
-  },
+  heroBannerImage: { borderRadius: 22 },
+  heroBannerOverlay: { padding: 20, flex: 1 },
   heroBannerInner: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -334,7 +358,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   heroBannerSub: { fontSize: 13, color: colors.textSoft },
-  heroBannerLogo: { width: 80, height: 80, opacity: 0.85, marginLeft: 10 },
   heroCTA: {
     flexDirection: "row",
     alignItems: "center",
@@ -358,11 +381,7 @@ const styles = StyleSheet.create({
   },
 
   // Quick Actions
-  quickRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 28,
-  },
+  quickRow: { flexDirection: "row", gap: 10, marginBottom: 28 },
   quickCard: {
     flex: 1,
     backgroundColor: "rgba(20,28,45,0.6)",
@@ -418,11 +437,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 4,
   },
-  featureCardSub: {
-    fontSize: 12,
-    color: colors.textSoft,
-    lineHeight: 17,
-  },
+  featureCardSub: { fontSize: 12, color: colors.textSoft, lineHeight: 17 },
   featureArrowWrap: {
     width: 32,
     height: 32,
@@ -444,20 +459,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  profileChipText: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
+  profileChipText: { flex: 1, fontSize: 12, color: colors.textMuted },
   logoutChipBtn: {
     backgroundColor: "rgba(171,213,255,0.08)",
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
   },
-  logoutChipText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.primaryLight,
-  },
+  logoutChipText: { fontSize: 12, fontWeight: "600", color: colors.primaryLight },
 });

@@ -16,6 +16,7 @@ import hairProfileRoutes from "./routes/hairProfile";
 import hairGenerateRoutes from "./routes/hairGenerate";
 import facePhotosRoutes from "./routes/facePhotos";
 import loyaltyRoutes from "./routes/loyalty";
+import loyaltyMobileRoutes from "./routes/loyaltyCustomer";
 import path from "path";
 
 const app = express();
@@ -57,6 +58,7 @@ app.use("/api/hair-profile", hairProfileRoutes);
 app.use("/api/hair-generate", hairGenerateRoutes);
 app.use("/api/face-photos", facePhotosRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
+app.use("/api/loyalty-mobile/customer", loyaltyMobileRoutes);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/auth/me", async (req, res) => {

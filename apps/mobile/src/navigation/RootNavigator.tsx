@@ -19,6 +19,7 @@ import { AuthUser } from "../types/auth";
 import { ServiceItem, StylistItem } from "../types/salon";
 import VirtualTryOnScreen from "../screens/VirtualTryOnScreen";
 import FaceScanScreen from "../screens/FaceScanScreen";
+import LoyaltyScreen from "../screens/LoyaltyScreen";
 import { colors } from "../theme/colors";
 import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -74,6 +75,7 @@ export type RootStackParamList = {
     userSub?: string;
     idToken?: string;
   };
+  Loyalty: { salonId?: string } | undefined;
 };
 
 export type TabParamList = {
@@ -160,6 +162,7 @@ function MainTabs({
             onBrowseAppointments={() =>
               navigation.getParent()?.navigate("Appointments")
             }
+            onOpenLoyalty={() => navigation.getParent()?.navigate("Loyalty", {})}
           />
         )}
       </Tab.Screen>
@@ -210,11 +213,9 @@ const tabStyles = StyleSheet.create({
   },
   tabBarBg: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(8, 14, 26, 0.92)",
+    backgroundColor: "rgb(8, 14, 26)",
     borderTopWidth: 1,
     borderTopColor: colors.glassBorder,
-    // React Native doesn't support backdropFilter natively;
-    // for blur effect install expo-blur and use BlurView here
   },
   tabLabel: {
     fontSize: 10,
@@ -318,11 +319,22 @@ export default function RootNavigator({
                 />
               )}
             </Stack.Screen>
+            <Stack.Screen name="Loyalty">
+  {(props) => (
+    <LoyaltyScreen
+      {...props}
+      idToken={idToken!}
+      // Note: route.params might be undefined if you click from Home
+      salonId={props.route?.params?.salonId} 
+    />
+  )}
+</Stack.Screen>
           </>
         ) : (
           <Stack.Screen name="Login">
             {() => <LoginScreen onLoginSuccess={onLoginSuccess} />}
           </Stack.Screen>
+        
         )}
       </Stack.Navigator>
     </NavigationContainer>

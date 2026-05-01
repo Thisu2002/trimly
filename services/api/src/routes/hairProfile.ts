@@ -1,3 +1,4 @@
+//D:\trimly\services\api\src\routes\hairProfile.ts
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 
@@ -19,7 +20,7 @@ router.get("/:userSub", async (req: any, res) => {
     }
 
     const profile = await prisma.userHairProfile.findUnique({
-      where: { userId: user.id },
+      where: { customerId: user.customerProfile.id },
     });
 
     if (!profile) {
@@ -59,9 +60,9 @@ router.put("/:userSub", async (req: any, res) => {
     } = req.body;
 
     const profile = await prisma.userHairProfile.upsert({
-      where: { userId: user.id },
+      where: { customerId: user.customerProfile.id },
       create: {
-        userId: user.id,
+        customerId: user.customerProfile.id,
         faceShape,
         hairType,
         hairLength,

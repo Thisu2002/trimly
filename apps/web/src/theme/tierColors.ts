@@ -1,3 +1,4 @@
+//D:\trimly\apps\web\src\theme\tierColors.ts
 export interface TierColorConfig {
   icon: string;
   gradient: string;       // Tailwind gradient classes for badge/pill

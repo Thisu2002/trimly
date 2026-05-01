@@ -20,6 +20,7 @@
     "expo-file-system": "~19.0.21",
     "expo-gl": "~16.0.10",
     "expo-linear-gradient": "~15.0.8",
+    "expo-media-library": "~18.2.1",
     "expo-status-bar": "~3.0.9",
     "jwt-decode": "^4.0.0",
     "md5": "^2.3.0",
