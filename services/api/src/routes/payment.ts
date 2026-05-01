@@ -31,7 +31,7 @@ router.post("/notify", async (req, res) => {
 
     const pending = await prisma.pendingPayment.findUnique({
       where: { id: order_id },
-      include: { user: true },
+      include: { customer: true },
     });
 
     if (!pending) {
@@ -57,7 +57,7 @@ router.post("/notify", async (req, res) => {
       });
 
       if (!customer) {
-        console.error("PayHere notify: customer not found for user", pending.userId);
+        console.error("PayHere notify: customer not found for user", pending.customerId);
         return res.sendStatus(500);
       }
 
