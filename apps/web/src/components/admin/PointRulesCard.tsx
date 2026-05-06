@@ -1,8 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Edit, Save, Check, MessageSquare, Calendar, DollarSign } from "lucide-react";
+import {
+  Settings,
+  Edit,
+  Save,
+  Check,
+  MessageSquare,
+  Calendar,
+  DollarSign,
+} from "lucide-react";
 import type { PointsRule } from "@/types";
+import { lTheme } from "@/theme/loyaltyTheme";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   check: Check,
@@ -43,9 +52,12 @@ export function PointRulesCard({ rules, onSave }: Props) {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-lg font-semibold">Points Rules</h2>
-          <p className="text-gray-400 text-sm">Configure how customers earn points</p>
+          <p className="text-gray-400 text-sm">
+            Configure how customers earn points
+          </p>
         </div>
-        <Settings className="w-5 h-5 text-gray-400" />
+        {/* Primary accent icon */}
+        <Settings className={`w-5 h-5 ${lTheme.iconAccent}`} />
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -57,7 +69,7 @@ export function PointRulesCard({ rules, onSave }: Props) {
           return (
             <div
               key={rule.id}
-              className="p-4 bg-[#0f172a] border border-gray-700 rounded-xl hover:border-gray-600 transition-colors"
+              className={`p-4 ${lTheme.innerCardBg} border border-gray-700 rounded-xl ${lTheme.borderAccentHover} transition-colors`}
             >
               <div className="flex items-start gap-4">
                 <div
@@ -65,11 +77,13 @@ export function PointRulesCard({ rules, onSave }: Props) {
                 >
                   <Icon className="w-5 h-5 text-white" />
                 </div>
+
                 <div className="flex-1">
                   <p className="font-medium text-white text-sm">{rule.label}</p>
                   <p className="text-xs text-gray-500 mt-0.5 mb-3">
                     {rule.description}
                   </p>
+
                   <div className="flex items-center gap-2">
                     {isEditing ? (
                       <>
@@ -79,27 +93,30 @@ export function PointRulesCard({ rules, onSave }: Props) {
                           onChange={(e) =>
                             setEditingPoints(parseInt(e.target.value) || 0)
                           }
-                          className="w-20 h-7 px-2 bg-gray-800 border border-gray-600 rounded text-white text-sm outline-none"
+                          className={`w-20 h-7 px-2 bg-gray-800 border border-gray-600 rounded text-white text-sm outline-none ${lTheme.borderAccentFocus} transition-colors`}
                           min="0"
                           autoFocus
                         />
                         <button
                           onClick={() => handleSave(rule.id)}
                           disabled={saving}
-                          className="h-7 px-3 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs flex items-center gap-1 disabled:opacity-50 transition-colors"
+                          className={`h-7 px-3 rounded bg-gray-700 hover:bg-gray-600 ${lTheme.textAccent} text-xs flex items-center gap-1 disabled:opacity-50 transition-colors`}
                         >
-                          <Save className="w-3 h-3" />
+                          <Save className={`w-3 h-3 ${lTheme.iconAccent}`} />
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="h-7 px-2 rounded text-gray-500 hover:text-gray-300 text-xs transition-colors"
+                          className={`h-7 px-2 rounded ${lTheme.textAccent} hover:text-gray-300 text-xs transition-colors`}
                         >
                           ✕
                         </button>
                       </>
                     ) : (
                       <>
-                        <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-300 border border-gray-700">
+                        {/* pts badge — accent tint */}
+                        <span
+                          className={`text-xs text-gray-400 px-2 py-1 rounded ${lTheme.badgeBg} border border-gray-600`}
+                        >
                           {rule.points} pts
                         </span>
                         <button
@@ -107,9 +124,9 @@ export function PointRulesCard({ rules, onSave }: Props) {
                             setEditingId(rule.id);
                             setEditingPoints(rule.points);
                           }}
-                          className="h-7 w-7 rounded flex items-center justify-center text-gray-600 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+                          className={`h-7 w-7 rounded flex items-center justify-center text-gray-600 hover:text-gray-300 hover:bg-gray-800 transition-colors`}
                         >
-                          <Edit className="w-3 h-3" />
+                          <Edit className={`w-3 h-3 ${lTheme.iconAccent}`} />
                         </button>
                       </>
                     )}

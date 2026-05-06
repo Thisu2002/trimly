@@ -3,7 +3,8 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN!;
 
 const jwks = createRemoteJWKSet(
-  new URL(`https://${AUTH0_DOMAIN}/.well-known/jwks.json`)
+  new URL(`https://${AUTH0_DOMAIN}/.well-known/jwks.json`),
+  { timeoutDuration: 10000 } // 10s instead of default 5s
 );
 
 export async function verifyIdToken(idToken: string) {

@@ -12,9 +12,11 @@ export default async function Page() {
     if (!user) redirect("/auth/login");
     if (user.role === "customer") {
       redirect("/customer/home");
-    } else {
+    } else if (user.role === "admin") {
       redirect("/admin/dashboard");
     }
+    else
+      redirect("/stylist/dashboard");
   }
 
   return (

@@ -6,6 +6,7 @@ import { Gift, Edit, Trash2, Zap, TrendingUp } from "lucide-react";
 import type { LoyaltyReward, LoyaltyTier } from "@/types";
 import { EditRewardModal } from "@/components/admin/EditRewardModal";
 import { ConfirmDeleteDialog } from "@/components/admin/ConfirmDeleteDialog";
+import { lTheme } from "@/theme/loyaltyTheme";
 
 interface Props {
   rewards: LoyaltyReward[];
@@ -43,12 +44,12 @@ export function RewardsCard({ rewards, tiers, onDelete, onToggleActive, onEdit }
               Manage redeemable rewards for customers
             </p>
           </div>
-          <Gift className="w-5 h-5 text-gray-400" />
+          <Gift className={`w-5 h-5 ${lTheme.iconAccent}`} />
         </div>
 
         {rewards.length === 0 && (
           <div className="text-center py-12 text-gray-600">
-            <Gift className="w-8 h-8 mx-auto mb-3 opacity-40" />
+            <Gift className={`w-8 h-8 mx-auto mb-3 ${lTheme.iconAccent}`} />
             <p className="text-sm">No rewards yet. Create your first one.</p>
           </div>
         )}
@@ -60,12 +61,12 @@ export function RewardsCard({ rewards, tiers, onDelete, onToggleActive, onEdit }
               initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.04, duration: 0.25 }}
-              className="flex items-center gap-4 p-4 bg-[#0f172a] rounded-xl border border-gray-700 hover:border-gray-600 transition-colors group"
+              className={`flex items-center gap-4 p-4 ${lTheme.innerCardBg} border border-gray-700 rounded-xl ${lTheme.borderAccentHover} transition-colors group`}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <h4 className="font-medium text-white text-sm">{reward.name}</h4>
-                  <span className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400">
+                  <span className={`text-xs px-2 py-0.5 rounded border border-gray-700 ${lTheme.iconAccent}`}>
                     {reward.tierRequired}+
                   </span>
                   {reward.active ? (
@@ -81,11 +82,11 @@ export function RewardsCard({ rewards, tiers, onDelete, onToggleActive, onEdit }
                 <p className="text-xs text-gray-500 mb-2 truncate">{reward.description}</p>
                 <div className="flex items-center gap-3 text-xs text-gray-600">
                   <span className="flex items-center gap-1">
-                    <Zap className="w-3 h-3" />
+                    <Zap className={`w-3 h-3 ${lTheme.iconAccent}`} />
                     {reward.pointsCost} points
                   </span>
                   <span className="flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" />
+                    <TrendingUp className={`w-3 h-3 ${lTheme.iconAccent}`} />
                     {reward.totalRedeemed} redeemed
                   </span>
                 </div>
@@ -103,13 +104,13 @@ export function RewardsCard({ rewards, tiers, onDelete, onToggleActive, onEdit }
                   onClick={() => setEditingReward(reward)}
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-gray-300 hover:bg-gray-800 transition-colors"
                 >
-                  <Edit className="w-3.5 h-3.5" />
+                  <Edit className={`w-3.5 h-3.5 ${lTheme.iconAccent}`} />
                 </button>
                 <button
                   onClick={() => setDeletingId(reward.id)}
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className={`w-3.5 h-3.5 ${lTheme.iconAccent}`} />
                 </button>
               </div>
             </motion.div>

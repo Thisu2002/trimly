@@ -104,7 +104,6 @@ export default function LoyaltyPage() {
     fetchAll();
   }, []);
 
-  // Blur/lock scroll when modal open (matches your services page pattern)
   useEffect(() => {
     const content = document.getElementById("admin-content");
     if (!content) return;
@@ -117,7 +116,7 @@ export default function LoyaltyPage() {
     return () => { content.style.overflow = ""; };
   }, [isModalOpen]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   async function handleSaveRule(ruleId: string, newPoints: number) {
     await authedPatch(`/api/loyalty/rules/${ruleId}`, { points: newPoints });
@@ -183,7 +182,8 @@ export default function LoyaltyPage() {
           </div>
           <button
             onClick={() => setShowCreateReward(true)}
-            className="border border-gray-600 px-4 py-2 rounded-lg hover:bg-gray-800 flex items-center gap-2 text-sm transition-colors"
+            className="border border-[#abd5ff]/40 text-[#abd5ff] px-4 py-2 rounded-lg
+              hover:bg-[#abd5ff]/10 flex items-center gap-2 text-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             Create Reward

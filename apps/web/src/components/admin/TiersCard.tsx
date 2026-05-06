@@ -2,7 +2,7 @@
 
 import { Award, Edit, Check } from "lucide-react";
 import type { LoyaltyTier } from "@/types";
-import { getTierColor } from "@/theme/tierColors";
+import { getTierColor, lTheme } from "@/theme/loyaltyTheme";
 
 interface Props {
   tiers: LoyaltyTier[];
@@ -19,7 +19,8 @@ export function TiersCard({ tiers, onEditTier }: Props) {
             Manage tier thresholds and benefits
           </p>
         </div>
-        <Award className="w-5 h-5 text-gray-400" />
+        {/* Primary accent icon */}
+        <Award className={`w-5 h-5 ${lTheme.iconAccent}`} />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -28,17 +29,34 @@ export function TiersCard({ tiers, onEditTier }: Props) {
           return (
             <div
               key={tier.id}
-              className={`p-4 bg-[#0f172a] border border-gray-700 rounded-xl ${colors.borderAccent} transition-colors text-center`}
+              className={`p-4 ${lTheme.innerCardBg} border border-gray-700 rounded-xl ${colors.borderAccent} transition-colors text-center`}
             >
               <div className="text-3xl mb-2">{colors.icon}</div>
+
               <h3 className={`font-semibold text-sm ${colors.textColor}`}>
                 {tier.name}
               </h3>
-              <div
-                className={`inline-block mt-1.5 mb-2 px-2 py-0.5 rounded-full text-xs text-white bg-gradient-to-r ${colors.gradient}`}
-              >
-                {tier.threshold}+ pts
+
+              {/*
+               * Gradient border trick — CSS can't apply gradients to `border-color`,
+               * so we wrap the badge in a 1 px gradient shell and put the real
+               * background on the inner element.
+               *
+               * Structure:
+               *   <div  gradient bg, padding 1px, rounded-full>   ← "border"
+               *     <div  real bg, rounded-full, px/py>            ← content
+               *   </div>
+               */}
+              <div className="flex justify-center mt-1.5 mb-2">
+                <div
+                  className={`p-[1px] rounded-full bg-gradient-to-r ${colors.gradient}`}
+                >
+                  <div className="rounded-full bg-[#0f172a] px-2.5 py-0.5 text-xs text-white whitespace-nowrap">
+                    {tier.threshold}+ pts
+                  </div>
+                </div>
               </div>
+
               <p className="text-xs text-gray-500 mb-3">
                 {tier.multiplier}x multiplier
               </p>
@@ -61,9 +79,12 @@ export function TiersCard({ tiers, onEditTier }: Props) {
                 )}
               </div>
 
+              {/* Edit button — primary accent on hover */}
               <button
                 onClick={() => onEditTier(tier, i)}
-                className="w-full py-1.5 rounded-lg border border-gray-700 text-gray-400 text-xs hover:bg-gray-800 hover:text-gray-200 transition-colors flex items-center justify-center gap-1.5"
+                className={`w-full py-1.5 rounded-lg border border-gray-700 text-gray-400 text-xs
+                  hover:bg-gray-800 hover:${lTheme.textAccent} hover:border-[#abd5ff]/40
+                  transition-colors flex items-center justify-center gap-1.5`}
               >
                 <Edit className="w-3 h-3" />
                 Edit Tier

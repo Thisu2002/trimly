@@ -17,22 +17,24 @@ import hairGenerateRoutes from "./routes/hairGenerate";
 import facePhotosRoutes from "./routes/facePhotos";
 import loyaltyRoutes from "./routes/loyalty";
 import loyaltyMobileRoutes from "./routes/loyaltyCustomer";
+import stylistDashboardRoutes from "./routes/stylistDashboard";
+
 import path from "path";
 
 const app = express();
 
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "https://trimly-web-five.vercel.app/"],
-    credentials: true,
-  })
-);
 // app.use(
 //   cors({
-//     origin: true,
+//     origin: ["http://localhost:3000", "https://trimly-web-five.vercel.app/"],
 //     credentials: true,
 //   })
 // );
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
 
 app.use((req, res, next) => {
   console.log(`→ ${req.method} ${req.path}`);
@@ -59,6 +61,7 @@ app.use("/api/hair-generate", hairGenerateRoutes);
 app.use("/api/face-photos", facePhotosRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
 app.use("/api/loyalty-mobile/customer", loyaltyMobileRoutes);
+app.use("/api/stylist-dashboard", stylistDashboardRoutes);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/auth/me", async (req, res) => {
@@ -103,12 +106,12 @@ app.post("/auth/me", async (req, res) => {
   }
 });
 
-const port = Number(process.env.PORT || 4000);
-app.listen(port, () =>
-  console.log(`API listening on http://localhost:${port}`)
-);
-
 // const port = Number(process.env.PORT || 4000);
-// app.listen(port, "0.0.0.0", () =>
-//   console.log(`API listening on http://0.0.0.0:${port}`)
+// app.listen(port, () =>
+//   console.log(`API listening on http://localhost:${port}`)
 // );
+
+const port = Number(process.env.PORT || 4000);
+app.listen(port, "0.0.0.0", () =>
+  console.log(`API listening on http://0.0.0.0:${port}`)
+);
