@@ -72,8 +72,6 @@ export default function StylistProfilePage() {
     } finally {
       setLoading(false);
     }
-  // prefill is defined outside useCallback and never changes — safe to omit
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,4 @@
-// ADD this router to your existing loyalty.ts routes file
-// Or register as a separate file at routes/loyaltyCustomer.ts
+// D:\trimly\services\api\src\routes\loyaltyCustomer.ts
 // Mount in app.ts: app.use("/api/loyalty/customer", loyaltyCustomerRouter)
 
 import { Router } from "express";
@@ -10,29 +9,16 @@ const router = Router();
 
 function handleError(res: any, err: any) {
   console.error(err);
-  const status = err?.status ?? 500;
-  const message = err?.message ?? "Internal server error";
-  return res.status(status).json({ error: message });
+  return res.status(err?.status ?? 500).json({ error: err?.message ?? "Internal server error" });
 }
 
-/**
- * Resolves the customer record from an id token.
- * Customers belong to a salon via their appointment history —
- * we find the most recently active salon's loyalty program.
- */
 async function resolveCustomer(idToken: string) {
   const payload = await verifyIdToken(idToken);
   const sub = String(payload.sub);
 
   const user = await prisma.user.findUnique({
     where: { auth0Sub: sub },
-    include: {
-      customerProfile: {
-        include: {
-          loyaltyPoints: { include: { tier: true } },
-        },
-      },
-    },
+    include: { customerProfile: true },
   });
 
   if (!user) throw { status: 401, message: "User not found" };
@@ -41,64 +27,89 @@ async function resolveCustomer(idToken: string) {
   return { user, customer: user.customerProfile };
 }
 
-/**
- * Find the loyalty program for the salon the customer most recently visited.
- * Customers book at one salon at a time (each salon has its own program).
- */
-async function resolveSalonProgramForCustomer(customerId: string) {
-  // Get the most recent completed appointment to determine which salon
-  const latestAppointment = await prisma.appointment.findFirst({
-    where: { customerId, status: "completed" },
-    orderBy: { date: "desc" },
-    select: { salonId: true },
-  });
+// ─── GET /api/loyalty/customer/salons ────────────────────────────────────────
+// Returns all salons the customer has visited (any appointment status),
+// with their loyalty program info if one exists.
+// This is used to populate the salon selector on the LoyaltyScreen.
 
-  if (!latestAppointment) return null;
+router.get("/salons", async (req, res) => {
+  try {
+    const { idToken } = req.query;
+    if (!idToken) return res.status(401).json({ error: "Missing token" });
 
-  const program = await prisma.loyaltyProgram.findUnique({
-    where: { salonId: latestAppointment.salonId },
-  });
+    const { customer } = await resolveCustomer(String(idToken));
 
-  return program;
-}
+    // Find all distinct salons this customer has booked at
+    const appointments = await prisma.appointment.findMany({
+      where: { customerId: customer.id },
+      select: { salonId: true },
+      distinct: ["salonId"],
+    });
+
+    if (appointments.length === 0) return res.json([]);
+
+    const salonIds = appointments.map((a) => a.salonId);
+
+    const salons = await prisma.salon.findMany({
+      where: { id: { in: salonIds } },
+      include: {
+        loyaltyProgram: {
+          include: { tiers: { orderBy: { sortOrder: "asc" }, take: 1 } },
+        },
+      },
+    });
+
+    // For each salon, include whether the customer already has points
+    const customerPointsRecords = await prisma.customerPoints.findMany({
+      where: {
+        customerId: customer.id,
+        program: { salonId: { in: salonIds } },
+      },
+      include: { program: { select: { salonId: true } } },
+    });
+
+    const pointsBySalon = new Map(
+      customerPointsRecords.map((cp) => [cp.program.salonId, cp])
+    );
+
+    res.json(
+      salons.map((salon) => ({
+        salonId: salon.id,
+        salonName: salon.name,
+        hasLoyaltyProgram: !!salon.loyaltyProgram,
+        customerPoints: pointsBySalon.get(salon.id)?.totalPoints ?? null,
+        // null means no points record yet (hasn't completed an appointment)
+      }))
+    );
+  } catch (err) {
+    handleError(res, err);
+  }
+});
 
 // ─── GET /api/loyalty/customer/summary ───────────────────────────────────────
-// Full loyalty summary: points, tier, available rewards, recent history, tiers roadmap
+// Full loyalty data for one specific salon.
+// Requires salonId — customer must have at least one appointment at this salon.
 
 router.get("/summary", async (req, res) => {
   try {
     const { idToken, salonId } = req.query;
     if (!idToken) return res.status(401).json({ error: "Missing token" });
+    if (!salonId) return res.status(400).json({ error: "salonId is required" });
 
     const { customer } = await resolveCustomer(String(idToken));
 
-    // If salonId is not passed, derive from most recent appointment
-    let programSalonId = salonId ? String(salonId) : null;
-    console.log("Resolving loyalty summary for customer", customer.id, "salonId param:", programSalonId);
-    if (!programSalonId) {
-      const latest = await prisma.appointment.findFirst({
-        where: { customerId: customer.id, status: "completed" },
-        orderBy: { date: "desc" },
-        select: { salonId: true },
-      });
-      if (latest) programSalonId = latest.salonId;
-    }
-    console.log("Determined programSalonId:", programSalonId);
+    // Gate: customer must have at least one appointment at this salon
+    const hasAppointment = await prisma.appointment.findFirst({
+      where: { customerId: customer.id, salonId: String(salonId) },
+      select: { id: true },
+    });
 
-    if (!programSalonId) {
-      // Customer has no completed appointments yet — return empty state
-      return res.json({
-        points: null,
-        tiers: [],
-        currentTier: null,
-        availableRewards: [],
-        redemptionHistory: [],
-        rules: [],
-      });
+    if (!hasAppointment) {
+      return res.status(403).json({ error: "No appointments at this salon" });
     }
 
     const program = await prisma.loyaltyProgram.findUnique({
-      where: { salonId: programSalonId },
+      where: { salonId: String(salonId) },
       include: {
         tiers: { orderBy: { sortOrder: "asc" } },
         rules: { orderBy: { createdAt: "asc" } },
@@ -111,28 +122,32 @@ router.get("/summary", async (req, res) => {
     });
 
     if (!program) {
+      // Salon has no loyalty program yet
       return res.json({
         points: null,
         tiers: [],
         currentTier: null,
+        nextTier: null,
         availableRewards: [],
-        redemptionHistory: [],
+        history: [],
         rules: [],
       });
     }
 
-    // Customer's points balance
-    const cp = customer.loyaltyPoints;
+    // Customer's points for this specific salon
+    const cp = await prisma.customerPoints.findUnique({
+      where: { customerId_programId: { customerId: customer.id, programId: program.id } },
+      include: { tier: true },
+    });
+
     const totalPoints = cp?.totalPoints ?? 0;
     const lifetimePoints = cp?.lifetimePoints ?? 0;
 
-    // Current tier (from CustomerPoints.tierId or fall back to lowest)
     const currentTier = cp?.tier ?? program.tiers[0] ?? null;
-
-    // Next tier
     const currentTierIndex = program.tiers.findIndex((t) => t.id === currentTier?.id);
     const nextTier = program.tiers[currentTierIndex + 1] ?? null;
-    const pointsToNextTier = nextTier ? nextTier.threshold - lifetimePoints : 0;
+
+    const pointsToNextTier = nextTier ? Math.max(0, nextTier.threshold - lifetimePoints) : 0;
     const tierProgress = nextTier
       ? Math.min(
           100,
@@ -144,8 +159,7 @@ router.get("/summary", async (req, res) => {
         )
       : 100;
 
-    // Rewards — mark each as redeemable based on points balance + tier
-    const unlockedTierIndexes = program.tiers
+    const unlockedTierNames = program.tiers
       .filter((t) => lifetimePoints >= t.threshold)
       .map((t) => t.name);
 
@@ -156,35 +170,48 @@ router.get("/summary", async (req, res) => {
       pointsCost: r.pointsCost,
       tierRequired: r.tierRequired,
       totalRedeemed: r._count.redemptions,
-      canRedeem:
-        totalPoints >= r.pointsCost && unlockedTierIndexes.includes(r.tierRequired),
-      tierLocked: !unlockedTierIndexes.includes(r.tierRequired),
+      canRedeem: totalPoints >= r.pointsCost && unlockedTierNames.includes(r.tierRequired),
+      tierLocked: !unlockedTierNames.includes(r.tierRequired),
     }));
 
-    // Redemption history (last 20)
+    // Redemption history for this salon's program
     const redemptions = await prisma.rewardRedemption.findMany({
-      where: { customerId: customer.id },
+      where: {
+        customerId: customer.id,
+        reward: { programId: program.id },
+      },
       include: { reward: { select: { name: true } } },
       orderBy: { redeemedAt: "desc" },
       take: 20,
     });
 
-    // Points earning history — derive from appointments (last 20 completed)
+    // Earning history from completed appointments at this salon
     const recentAppointments = await prisma.appointment.findMany({
-      where: { customerId: customer.id, status: "completed", salonId: programSalonId },
+      where: {
+        customerId: customer.id,
+        salonId: String(salonId),
+        status: "completed",
+        pointsAwarded: true, // only show appointments where points were actually given
+      },
       orderBy: { date: "desc" },
       take: 20,
       select: { id: true, date: true, totalLkr: true },
     });
 
-    // Build unified history: appointments (earned) + redemptions (spent)
-    const earnedHistory = recentAppointments.map((a) => ({
-      type: "earned" as const,
-      label: "Service Completed",
-      description: `Appointment on ${new Date(a.date).toLocaleDateString("en-LK", { month: "short", day: "numeric" })}`,
-      points: program.rules.find((r) => r.action === "service_completed")?.points ?? 10,
-      date: a.date.toISOString(),
-    }));
+    const serviceRule = program.rules.find((r) => r.action === "service_completed");
+    const spendRule = program.rules.find((r) => r.action === "spending_per_100");
+
+    const earnedHistory = recentAppointments.map((a) => {
+      const servicePoints = serviceRule?.points ?? 0;
+      const spendPoints = spendRule ? Math.floor(a.totalLkr / 100) * spendRule.points : 0;
+      return {
+        type: "earned" as const,
+        label: "Service Completed",
+        description: `Appointment on ${new Date(a.date).toLocaleDateString("en-LK", { month: "short", day: "numeric" })}`,
+        points: servicePoints + spendPoints,
+        date: a.date.toISOString(),
+      };
+    });
 
     const spentHistory = redemptions.map((r) => ({
       type: "spent" as const,
@@ -199,21 +226,9 @@ router.get("/summary", async (req, res) => {
       .slice(0, 20);
 
     res.json({
-      points: {
-        total: totalPoints,
-        lifetime: lifetimePoints,
-        toNextTier: pointsToNextTier > 0 ? pointsToNextTier : 0,
-        tierProgress,
-      },
+      points: { total: totalPoints, lifetime: lifetimePoints, toNextTier: pointsToNextTier, tierProgress },
       currentTier: currentTier
-        ? {
-            id: currentTier.id,
-            name: currentTier.name,
-            threshold: currentTier.threshold,
-            multiplier: currentTier.multiplier,
-            benefits: currentTier.benefits,
-            sortOrder: currentTier.sortOrder,
-          }
+        ? { id: currentTier.id, name: currentTier.name, threshold: currentTier.threshold, multiplier: currentTier.multiplier, benefits: currentTier.benefits, sortOrder: currentTier.sortOrder }
         : null,
       nextTier: nextTier
         ? { name: nextTier.name, threshold: nextTier.threshold, sortOrder: nextTier.sortOrder }
@@ -249,28 +264,26 @@ router.get("/summary", async (req, res) => {
 
 router.post("/redeem", async (req, res) => {
   try {
-    const { idToken, rewardId, salonId } = req.body;
+    const { idToken, rewardId } = req.body;
     if (!idToken || !rewardId) return res.status(400).json({ error: "Missing fields" });
 
     const { customer } = await resolveCustomer(String(idToken));
 
     const reward = await prisma.loyaltyReward.findUnique({
       where: { id: rewardId },
-      include: { program: true },
+      include: { program: { include: { tiers: { orderBy: { sortOrder: "asc" } } } } },
     });
     if (!reward || !reward.active) return res.status(404).json({ error: "Reward not found" });
 
-    const cp = customer.loyaltyPoints;
+    const cp = await prisma.customerPoints.findUnique({
+      where: { customerId_programId: { customerId: customer.id, programId: reward.programId } },
+    });
+
     if (!cp || cp.totalPoints < reward.pointsCost) {
       return res.status(400).json({ error: "Insufficient points" });
     }
 
-    // Tier check
-    const program = await prisma.loyaltyProgram.findUnique({
-      where: { id: reward.programId },
-      include: { tiers: { orderBy: { sortOrder: "asc" } } },
-    });
-    const unlockedTierNames = program!.tiers
+    const unlockedTierNames = reward.program.tiers
       .filter((t) => cp.lifetimePoints >= t.threshold)
       .map((t) => t.name);
 
@@ -278,18 +291,13 @@ router.post("/redeem", async (req, res) => {
       return res.status(400).json({ error: "Tier requirement not met" });
     }
 
-    // Deduct points + create redemption record in a transaction
     await prisma.$transaction([
       prisma.customerPoints.update({
-        where: { customerId: customer.id },
+        where: { customerId_programId: { customerId: customer.id, programId: reward.programId } },
         data: { totalPoints: { decrement: reward.pointsCost } },
       }),
       prisma.rewardRedemption.create({
-        data: {
-          customerId: customer.id,
-          rewardId: reward.id,
-          pointsSpent: reward.pointsCost,
-        },
+        data: { customerId: customer.id, rewardId: reward.id, pointsSpent: reward.pointsCost },
       }),
     ]);
 

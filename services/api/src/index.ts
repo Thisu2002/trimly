@@ -60,7 +60,7 @@ app.use("/api/hair-profile", hairProfileRoutes);
 app.use("/api/hair-generate", hairGenerateRoutes);
 app.use("/api/face-photos", facePhotosRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
-app.use("/api/loyalty-mobile/customer", loyaltyMobileRoutes);
+app.use("/api/loyalty/customer", loyaltyMobileRoutes);
 app.use("/api/stylist-dashboard", stylistDashboardRoutes);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

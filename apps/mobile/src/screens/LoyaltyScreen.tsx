@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,12 +11,16 @@ import {
   View,
   Alert,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { getTierColor } from "../lib/tierColors";
 import type {
+  CustomerSalonEntry,
   LoyaltySummaryResponse,
   CustomerReward,
   TierWithStatus,
@@ -26,19 +29,25 @@ import type {
 } from "../types/loyalty";
 import { API_BASE_URL } from "../config/api";
 
-
-const { width } = Dimensions.get("window");
-const CARD_WIDTH = width - 36;
-
 // ─── API ──────────────────────────────────────────────────────────────────────
+
+async function fetchCustomerSalons(
+  idToken: string,
+): Promise<CustomerSalonEntry[]> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/loyalty/customer/salons?idToken=${idToken}`,
+  );
+  if (!res.ok) throw new Error("Failed to load salons");
+  return res.json();
+}
 
 async function fetchLoyaltySummary(
   idToken: string,
-  salonId?: string
+  salonId: string,
 ): Promise<LoyaltySummaryResponse> {
-  const params = new URLSearchParams({ idToken });
-  if (salonId) params.set("salonId", salonId);
-  const res = await fetch(`${API_BASE_URL}/api/loyalty-mobile/customer/summary?${params}`);
+  const res = await fetch(
+    `${API_BASE_URL}/api/loyalty/customer/summary?idToken=${idToken}&salonId=${salonId}`,
+  );
   if (!res.ok) throw new Error("Failed to load loyalty data");
   return res.json();
 }
@@ -46,12 +55,11 @@ async function fetchLoyaltySummary(
 async function redeemReward(
   idToken: string,
   rewardId: string,
-  salonId?: string
 ): Promise<{ ok: boolean; message: string; newBalance: number }> {
-  const res = await fetch(`${API_BASE_URL}/api/loyalty-mobile/customer/redeem`, {
+  const res = await fetch(`${API_BASE_URL}/api/loyalty/customer/redeem`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken, rewardId, salonId }),
+    body: JSON.stringify({ idToken, rewardId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -64,31 +72,45 @@ async function redeemReward(
 
 interface Props {
   idToken: string;
-  salonId?: string; // optional: pre-select a salon's program
+  salonId?: string; // optional: jump straight to a specific salon
 }
-
-// ─── Tab type ─────────────────────────────────────────────────────────────────
 
 type Tab = "rewards" | "tiers" | "history";
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function LoyaltyScreen({ idToken, salonId }: Props) {
+export default function LoyaltyScreen({
+  idToken,
+  salonId: initialSalonId,
+}: Props) {
   const insets = useSafeAreaInsets();
+
+  const [salons, setSalons] = useState<CustomerSalonEntry[]>([]);
+  const [selectedSalonId, setSelectedSalonId] = useState<string | null>(
+    initialSalonId ?? null,
+  );
   const [data, setData] = useState<LoyaltySummaryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingSalons, setLoadingSalons] = useState(true);
+  const [loadingData, setLoadingData] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("rewards");
   const [redeeming, setRedeeming] = useState<string | null>(null);
 
-  // Progress bar animation
   const progressAnim = useRef(new Animated.Value(0)).current;
 
+  // Load salon list on mount
   useEffect(() => {
-    load();
+    loadSalons();
   }, []);
 
+  // Load summary when selected salon changes
+  useEffect(() => {
+    if (selectedSalonId) loadSummary(selectedSalonId);
+  }, [selectedSalonId]);
+
+  // Animate progress bar
   useEffect(() => {
     if (data?.points?.tierProgress !== undefined) {
+      progressAnim.setValue(0);
       Animated.timing(progressAnim, {
         toValue: data.points.tierProgress / 100,
         duration: 900,
@@ -96,18 +118,38 @@ export default function LoyaltyScreen({ idToken, salonId }: Props) {
         useNativeDriver: false,
       }).start();
     }
-  }, [data?.points?.tierProgress]);
+  }, [data?.points?.tierProgress, selectedSalonId]);
 
-  async function load() {
+  async function loadSalons() {
     try {
-      setLoading(true);
-      const result = await fetchLoyaltySummary(idToken, salonId);
-      setData(result);
-      console.log("Loyalty summary loaded:", result);
+      setLoadingSalons(true);
+      const list = await fetchCustomerSalons(idToken);
+      setSalons(list);
+      // Auto-select: prefer initialSalonId, else first salon with a loyalty program, else first
+      if (!selectedSalonId) {
+        const preferred =
+          list.find((s) => s.salonId === initialSalonId) ??
+          list.find((s) => s.hasLoyaltyProgram) ??
+          list[0];
+        if (preferred) setSelectedSalonId(preferred.salonId);
+      }
     } catch (e) {
-      console.error(e);
+      console.error("loadSalons error:", e);
     } finally {
-      setLoading(false);
+      setLoadingSalons(false);
+    }
+  }
+
+  async function loadSummary(sid: string) {
+    try {
+      setLoadingData(true);
+      setData(null);
+      const result = await fetchLoyaltySummary(idToken, sid);
+      setData(result);
+    } catch (e) {
+      console.error("loadSummary error:", e);
+    } finally {
+      setLoadingData(false);
     }
   }
 
@@ -123,9 +165,9 @@ export default function LoyaltyScreen({ idToken, salonId }: Props) {
           onPress: async () => {
             setRedeeming(reward.id);
             try {
-              const result = await redeemReward(idToken, reward.id, salonId);
+              const result = await redeemReward(idToken, reward.id);
               Alert.alert("Redeemed! 🎉", result.message);
-              await load(); // refresh
+              if (selectedSalonId) await loadSummary(selectedSalonId);
             } catch (err: any) {
               Alert.alert("Failed", err.message ?? "Something went wrong");
             } finally {
@@ -133,14 +175,16 @@ export default function LoyaltyScreen({ idToken, salonId }: Props) {
             }
           },
         },
-      ]
+      ],
     );
   }
 
+  const selectedSalon = salons.find((s) => s.salonId === selectedSalonId);
   const tierColors =
     data?.currentTier != null ? getTierColor(data.currentTier.sortOrder) : null;
 
-  if (loading) {
+  // ── Loading salons ──
+  if (loadingSalons) {
     return (
       <LinearGradient
         colors={[colors.gradientLeft, colors.gradientRight]}
@@ -150,14 +194,30 @@ export default function LoyaltyScreen({ idToken, salonId }: Props) {
       >
         <ActivityIndicator color={colors.primaryLight} size="large" />
         <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13 }}>
-          Loading your rewards...
+          Loading your salons...
         </Text>
       </LinearGradient>
     );
   }
 
-  // Empty state — no completed appointments yet
-  const isEmpty = !data || !data.points;
+  // ── No appointments anywhere yet ──
+  if (salons.length === 0) {
+    return (
+      <LinearGradient
+        colors={[colors.gradientLeft, colors.gradientRight]}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 2, y: 0.5 }}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Loyalty & Rewards</Text>
+          </View>
+          <NoAppointmentsState />
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient
@@ -177,47 +237,120 @@ export default function LoyaltyScreen({ idToken, salonId }: Props) {
           {/* ── Header ── */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Loyalty & Rewards</Text>
-            <Pressable onPress={load} style={styles.refreshBtn}>
+            <Pressable
+              onPress={() => selectedSalonId && loadSummary(selectedSalonId)}
+              style={styles.refreshBtn}
+            >
               <Ionicons name="refresh" size={18} color={colors.primaryLight} />
             </Pressable>
           </View>
 
-          {isEmpty ? (
-            <EmptyState />
+          {/* ── Salon Selector ── */}
+          {salons.length > 1 && (
+            <SalonSelector
+              salons={salons}
+              selected={selectedSalonId}
+              onSelect={(id) => {
+                setSelectedSalonId(id);
+                setActiveTab("rewards");
+              }}
+            />
+          )}
+
+          {/* ── Loading summary ── */}
+          {loadingData ? (
+            <View style={styles.loadingCenter}>
+              <ActivityIndicator color={colors.primaryLight} />
+              <Text style={styles.loadingText}>Loading rewards...</Text>
+            </View>
+          ) : !selectedSalon?.hasLoyaltyProgram ? (
+            <NoLoyaltyProgramState salonName={selectedSalon?.salonName ?? ""} />
+          ) : !data?.points ? (
+            // Has a loyalty program but customer has no points yet (no completed appointments)
+            <NoPointsYetState salonName={selectedSalon?.salonName ?? ""} />
           ) : (
             <>
-              {/* ── Points Hero Card ── */}
               <PointsHeroCard
-                data={data!}
+                data={data}
                 tierColors={tierColors}
                 progressAnim={progressAnim}
               />
-
-              {/* ── Tabs ── */}
               <TabBar activeTab={activeTab} onSelect={setActiveTab} />
-
-              {/* ── Tab Content ── */}
               {activeTab === "rewards" && (
                 <RewardsTab
-                  rewards={data!.availableRewards}
+                  rewards={data.availableRewards}
                   onRedeem={handleRedeem}
                   redeeming={redeeming}
                 />
               )}
               {activeTab === "tiers" && (
                 <TiersTab
-                  tiers={data!.tiers}
-                  currentPoints={data!.points!.lifetime}
+                  tiers={data.tiers}
+                  currentPoints={data.points.lifetime}
                 />
               )}
               {activeTab === "history" && (
-                <HistoryTab history={data!.history} rules={data!.rules} />
+                <HistoryTab history={data.history} rules={data.rules} />
               )}
             </>
           )}
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
+  );
+}
+
+// ─── Salon Selector ───────────────────────────────────────────────────────────
+
+function SalonSelector({
+  salons,
+  selected,
+  onSelect,
+}: {
+  salons: CustomerSalonEntry[];
+  selected: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.salonSelectorScroll}
+      contentContainerStyle={styles.salonSelectorContent}
+    >
+      {salons.map((salon) => {
+        const isActive = salon.salonId === selected;
+        return (
+          <Pressable
+            key={salon.salonId}
+            onPress={() => onSelect(salon.salonId)}
+            style={[styles.salonChip, isActive && styles.salonChipActive]}
+          >
+            <Text
+              style={[
+                styles.salonChipName,
+                isActive && styles.salonChipNameActive,
+              ]}
+            >
+              {salon.salonName}
+            </Text>
+            {salon.customerPoints !== null && (
+              <Text
+                style={[
+                  styles.salonChipPoints,
+                  isActive && { color: colors.primaryLight },
+                ]}
+              >
+                {salon.customerPoints} pts
+              </Text>
+            )}
+            {!salon.hasLoyaltyProgram && (
+              <Text style={styles.salonChipNoProgram}>No program</Text>
+            )}
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 
@@ -247,16 +380,13 @@ function PointsHeroCard({
 
   return (
     <View style={styles.heroCard}>
-      {/* Glow blob */}
       <View style={[styles.heroGlow, { backgroundColor: tc.glowColor }]} />
-
       <LinearGradient
         colors={["rgba(20,28,45,0.92)", "rgba(15,23,42,0.95)"]}
         style={styles.heroCardInner}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        {/* Top row */}
         <View style={styles.heroTopRow}>
           <View>
             <Text style={styles.heroPointsLabel}>Your Points</Text>
@@ -267,8 +397,6 @@ function PointsHeroCard({
               {data.points!.lifetime.toLocaleString()} lifetime
             </Text>
           </View>
-
-          {/* Tier badge */}
           <View style={[styles.tierBadge, { backgroundColor: tc.badgeBg }]}>
             <Text style={styles.tierBadgeIcon}>{tc.icon}</Text>
             <Text style={[styles.tierBadgeName, { color: tc.textColor }]}>
@@ -277,10 +405,8 @@ function PointsHeroCard({
           </View>
         </View>
 
-        {/* Divider */}
         <View style={styles.heroDivider} />
 
-        {/* Progress */}
         {data.nextTier ? (
           <View>
             <View style={styles.progressLabelRow}>
@@ -312,7 +438,6 @@ function PointsHeroCard({
           </View>
         )}
 
-        {/* Mini stats */}
         <View style={styles.miniStatsRow}>
           <View style={styles.miniStat}>
             <Ionicons name="flash" size={14} color={colors.primaryLight} />
@@ -330,7 +455,9 @@ function PointsHeroCard({
           <View style={styles.miniStatDivider} />
           <View style={styles.miniStat}>
             <Ionicons name="layers" size={14} color={tc.textColor} />
-            <Text style={styles.miniStatValue}>{data.currentTier?.multiplier ?? 1}x</Text>
+            <Text style={styles.miniStatValue}>
+              {data.currentTier?.multiplier ?? 1}x
+            </Text>
             <Text style={styles.miniStatLabel}>Multiplier</Text>
           </View>
         </View>
@@ -393,12 +520,16 @@ function RewardsTab({
   if (rewards.length === 0) {
     return (
       <View style={styles.emptySection}>
-        <Ionicons name="gift-outline" size={40} color={colors.textMuted} style={{ opacity: 0.4 }} />
+        <Ionicons
+          name="gift-outline"
+          size={40}
+          color={colors.textMuted}
+          style={{ opacity: 0.4 }}
+        />
         <Text style={styles.emptySectionText}>No rewards available yet</Text>
       </View>
     );
   }
-
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Available Rewards</Text>
@@ -424,7 +555,6 @@ function RewardCard({
   isRedeeming: boolean;
 }) {
   const locked = !reward.canRedeem;
-
   return (
     <View style={[styles.rewardCard, locked && styles.rewardCardLocked]}>
       <LinearGradient
@@ -446,13 +576,14 @@ function RewardCard({
             />
           </View>
           <View style={styles.rewardCardInfo}>
-            <Text style={[styles.rewardName, locked && { color: colors.textMuted }]}>
+            <Text
+              style={[styles.rewardName, locked && { color: colors.textMuted }]}
+            >
               {reward.name}
             </Text>
             <Text style={styles.rewardDesc}>{reward.description}</Text>
           </View>
         </View>
-
         <View style={styles.rewardCardBottom}>
           <View style={styles.rewardMeta}>
             <Ionicons name="flash" size={12} color={colors.primaryLight} />
@@ -460,25 +591,36 @@ function RewardCard({
             {reward.tierLocked && (
               <>
                 <View style={styles.metaDot} />
-                <Ionicons name="lock-closed" size={11} color={colors.textMuted} />
-                <Text style={styles.rewardTierLock}>{reward.tierRequired}+ required</Text>
+                <Ionicons
+                  name="lock-closed"
+                  size={11}
+                  color={colors.textMuted}
+                />
+                <Text style={styles.rewardTierLock}>
+                  {reward.tierRequired}+ required
+                </Text>
               </>
             )}
           </View>
-
           <Pressable
             onPress={() => onRedeem(reward)}
             disabled={locked || isRedeeming}
-            style={[
-              styles.redeemBtn,
-              locked && styles.redeemBtnDisabled,
-            ]}
+            style={[styles.redeemBtn, locked && styles.redeemBtnDisabled]}
           >
             {isRedeeming ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={[styles.redeemBtnText, locked && { color: colors.textMuted }]}>
-                {reward.tierLocked ? "Locked" : locked ? "Not enough pts" : "Redeem"}
+              <Text
+                style={[
+                  styles.redeemBtnText,
+                  locked && { color: colors.textMuted },
+                ]}
+              >
+                {reward.tierLocked
+                  ? "Locked"
+                  : locked
+                    ? "Not enough pts"
+                    : "Redeem"}
               </Text>
             )}
           </Pressable>
@@ -518,37 +660,51 @@ function TiersTab({
               end={{ x: 1, y: 1 }}
             >
               {tier.isCurrent && (
-                <View style={[styles.currentBadge, { backgroundColor: tc.badgeBg }]}>
-                  <Text style={[styles.currentBadgeText, { color: tc.textColor }]}>
+                <View
+                  style={[styles.currentBadge, { backgroundColor: tc.badgeBg }]}
+                >
+                  <Text
+                    style={[styles.currentBadgeText, { color: tc.textColor }]}
+                  >
                     Current
                   </Text>
                 </View>
               )}
-
               <View style={styles.tierCardHeader}>
                 <Text style={styles.tierIcon}>{tc.icon}</Text>
                 <View style={styles.tierCardHeaderText}>
                   <Text
                     style={[
                       styles.tierName,
-                      { color: tier.unlocked ? tc.textColor : colors.textMuted },
+                      {
+                        color: tier.unlocked ? tc.textColor : colors.textMuted,
+                      },
                     ]}
                   >
                     {tier.name}
                   </Text>
                   <Text style={styles.tierThreshold}>
-                    {tier.threshold === 0 ? "Starting tier" : `${tier.threshold}+ lifetime pts`}
+                    {tier.threshold === 0
+                      ? "Starting tier"
+                      : `${tier.threshold}+ lifetime pts`}
                     {"  ·  "}
                     {tier.multiplier}x multiplier
                   </Text>
                 </View>
                 {tier.unlocked ? (
-                  <Ionicons name="checkmark-circle" size={20} color={tc.textColor} />
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={tc.textColor}
+                  />
                 ) : (
-                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={18}
+                    color={colors.textMuted}
+                  />
                 )}
               </View>
-
               <View style={styles.tierBenefitsList}>
                 {tier.benefits.map((b, i) => (
                   <View key={i} style={styles.tierBenefitRow}>
@@ -560,7 +716,10 @@ function TiersTab({
                     <Text
                       style={[
                         styles.tierBenefitText,
-                        !tier.unlocked && { color: colors.textMuted, opacity: 0.6 },
+                        !tier.unlocked && {
+                          color: colors.textMuted,
+                          opacity: 0.6,
+                        },
                       ]}
                     >
                       {b}
@@ -568,26 +727,27 @@ function TiersTab({
                   </View>
                 ))}
               </View>
-
-              {/* Progress bar if this is the next locked tier */}
-              {!tier.unlocked && tiers.find((t) => t.isCurrent)?.sortOrder === tier.sortOrder - 1 && (
-                <View style={styles.nextTierProgress}>
-                  <View style={styles.progressTrackSmall}>
-                    <View
-                      style={[
-                        styles.progressFillSmall,
-                        {
-                          width: `${Math.min(100, Math.round((currentPoints / tier.threshold) * 100))}%`,
-                          backgroundColor: tc.textColor,
-                        },
-                      ]}
-                    />
+              {!tier.unlocked &&
+                tiers.find((t) => t.isCurrent)?.sortOrder ===
+                  tier.sortOrder - 1 && (
+                  <View style={styles.nextTierProgress}>
+                    <View style={styles.progressTrackSmall}>
+                      <View
+                        style={[
+                          styles.progressFillSmall,
+                          {
+                            width: `${Math.min(100, Math.round((currentPoints / tier.threshold) * 100))}%`,
+                            backgroundColor: tc.textColor,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.nextTierProgressText}>
+                      {Math.max(0, tier.threshold - currentPoints)} pts
+                      remaining
+                    </Text>
                   </View>
-                  <Text style={styles.nextTierProgressText}>
-                    {Math.max(0, tier.threshold - currentPoints)} pts remaining
-                  </Text>
-                </View>
-              )}
+                )}
             </LinearGradient>
           </View>
         );
@@ -607,7 +767,6 @@ function HistoryTab({
 }) {
   return (
     <View style={styles.section}>
-      {/* How to earn */}
       <Text style={styles.sectionTitle}>How to Earn Points</Text>
       <View style={styles.rulesGrid}>
         {rules.map((rule) => (
@@ -617,18 +776,21 @@ function HistoryTab({
           </View>
         ))}
       </View>
-
-      {/* History list */}
-      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Recent Activity</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
+        Recent Activity
+      </Text>
       {history.length === 0 ? (
         <View style={styles.emptySection}>
-          <Ionicons name="time-outline" size={36} color={colors.textMuted} style={{ opacity: 0.4 }} />
+          <Ionicons
+            name="time-outline"
+            size={36}
+            color={colors.textMuted}
+            style={{ opacity: 0.4 }}
+          />
           <Text style={styles.emptySectionText}>No activity yet</Text>
         </View>
       ) : (
-        history.map((item, i) => (
-          <HistoryRow key={i} item={item} />
-        ))
+        history.map((item, i) => <HistoryRow key={i} item={item} />)
       )}
     </View>
   );
@@ -640,13 +802,16 @@ function HistoryRow({ item }: { item: HistoryEntry }) {
     month: "short",
     day: "numeric",
   });
-
   return (
     <View style={styles.historyRow}>
       <View
         style={[
           styles.historyIconWrap,
-          { backgroundColor: earned ? "rgba(34,197,94,0.12)" : "rgba(99,102,241,0.12)" },
+          {
+            backgroundColor: earned
+              ? "rgba(34,197,94,0.12)"
+              : "rgba(99,102,241,0.12)",
+          },
         ]}
       >
         <Ionicons
@@ -677,16 +842,42 @@ function HistoryRow({ item }: { item: HistoryEntry }) {
   );
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
+// ─── Empty / Info States ──────────────────────────────────────────────────────
 
-function EmptyState() {
+function NoAppointmentsState() {
   return (
     <View style={styles.emptyState}>
       <Text style={styles.emptyStateIcon}>🎁</Text>
-      <Text style={styles.emptyStateTitle}>Earn as you go</Text>
+      <Text style={styles.emptyStateTitle}>Book to earn</Text>
       <Text style={styles.emptyStateDesc}>
-        Complete your first appointment to start earning loyalty points and unlock
-        exclusive rewards.
+        Make your first appointment at a salon to start earning loyalty points
+        and unlock exclusive rewards.
+      </Text>
+    </View>
+  );
+}
+
+function NoLoyaltyProgramState({ salonName }: { salonName: string }) {
+  return (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyStateIcon}>⏳</Text>
+      <Text style={styles.emptyStateTitle}>Coming soon</Text>
+      <Text style={styles.emptyStateDesc}>
+        {salonName} hasn't set up a loyalty program yet. Check back after your
+        next visit.
+      </Text>
+    </View>
+  );
+}
+
+function NoPointsYetState({ salonName }: { salonName: string }) {
+  return (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyStateIcon}>✨</Text>
+      <Text style={styles.emptyStateTitle}>You're enrolled!</Text>
+      <Text style={styles.emptyStateDesc}>
+        {salonName} has a loyalty program. Complete your next appointment to
+        start earning points.
       </Text>
     </View>
   );
@@ -698,12 +889,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 18, paddingTop: 8 },
 
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 22,
@@ -722,6 +912,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  // Salon selector
+  salonSelectorScroll: { marginBottom: 16 },
+  salonSelectorContent: { gap: 8, paddingRight: 4 },
+  salonChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: "rgba(20,28,45,0.6)",
+    alignItems: "center",
+    gap: 2,
+  },
+  salonChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryLight,
+  },
+  salonChipName: { fontSize: 13, fontWeight: "600", color: colors.textMuted },
+  salonChipNameActive: { color: colors.white },
+  salonChipPoints: { fontSize: 10, color: colors.textMuted },
+  salonChipNoProgram: { fontSize: 9, color: colors.textMuted, opacity: 0.6 },
+
+  loadingCenter: { alignItems: "center", paddingVertical: 60, gap: 12 },
+  loadingText: { fontSize: 13, color: colors.textMuted },
+
   // Hero card
   heroCard: {
     borderRadius: 24,
@@ -739,10 +954,7 @@ const styles = StyleSheet.create({
     borderRadius: 80,
     opacity: 0.5,
   },
-  heroCardInner: {
-    padding: 22,
-    gap: 16,
-  },
+  heroCardInner: { padding: 22, gap: 16 },
   heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -761,11 +973,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 54,
   },
-  heroLifetime: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
+  heroLifetime: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   tierBadge: {
     borderRadius: 16,
     paddingHorizontal: 14,
@@ -782,10 +990,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  heroDivider: {
-    height: 1,
-    backgroundColor: colors.glassBorder,
-  },
+  heroDivider: { height: 1, backgroundColor: colors.glassBorder },
   progressLabelRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -799,25 +1004,15 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     overflow: "hidden",
   },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
+  progressFill: { height: "100%", borderRadius: 3 },
   progressPercent: {
     fontSize: 11,
     color: colors.textMuted,
     marginTop: 5,
     textAlign: "right",
   },
-  maxTierRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  maxTierText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  maxTierRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  maxTierText: { fontSize: 13, fontWeight: "600" },
   miniStatsRow: {
     flexDirection: "row",
     backgroundColor: "rgba(171,213,255,0.04)",
@@ -826,16 +1021,8 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     paddingVertical: 12,
   },
-  miniStat: {
-    flex: 1,
-    alignItems: "center",
-    gap: 3,
-  },
-  miniStatValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.text,
-  },
+  miniStat: { flex: 1, alignItems: "center", gap: 3 },
+  miniStatValue: { fontSize: 18, fontWeight: "700", color: colors.text },
   miniStatLabel: {
     fontSize: 10,
     color: colors.textMuted,
@@ -869,17 +1056,9 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 12,
   },
-  tabBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.textMuted,
-  },
-  tabLabelActive: {
-    color: colors.white,
-  },
+  tabBtnActive: { backgroundColor: colors.primary },
+  tabLabel: { fontSize: 12, fontWeight: "600", color: colors.textMuted },
+  tabLabelActive: { color: colors.white },
 
   // Section
   section: { gap: 10 },
@@ -891,15 +1070,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginBottom: 4,
   },
-  emptySection: {
-    alignItems: "center",
-    paddingVertical: 40,
-    gap: 10,
-  },
-  emptySectionText: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
+  emptySection: { alignItems: "center", paddingVertical: 40, gap: 10 },
+  emptySectionText: { fontSize: 13, color: colors.textMuted },
 
   // Reward card
   rewardCard: {
@@ -908,9 +1080,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  rewardCardLocked: {
-    opacity: 0.6,
-  },
+  rewardCardLocked: { opacity: 0.6 },
   rewardCardInner: { padding: 16, gap: 12 },
   rewardCardTop: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   rewardCardIcon: {
@@ -931,26 +1101,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 3,
   },
-  rewardDesc: {
-    fontSize: 12,
-    color: colors.textMuted,
-    lineHeight: 17,
-  },
+  rewardDesc: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
   rewardCardBottom: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  rewardMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  rewardPoints: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.primaryLight,
-  },
+  rewardMeta: { flexDirection: "row", alignItems: "center", gap: 5 },
+  rewardPoints: { fontSize: 13, fontWeight: "600", color: colors.primaryLight },
   metaDot: {
     width: 3,
     height: 3,
@@ -958,10 +1116,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textMuted,
     marginHorizontal: 2,
   },
-  rewardTierLock: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
+  rewardTierLock: { fontSize: 11, color: colors.textMuted },
   redeemBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -975,11 +1130,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  redeemBtnText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.white,
-  },
+  redeemBtnText: { fontSize: 12, fontWeight: "700", color: colors.white },
 
   // Tier card
   tierCard: {
@@ -988,9 +1139,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  tierCardCurrent: {
-    borderColor: "rgba(171,213,255,0.3)",
-  },
+  tierCardCurrent: { borderColor: "rgba(171,213,255,0.3)" },
   tierCardInner: { padding: 16, gap: 10 },
   currentBadge: {
     alignSelf: "flex-start",
@@ -1005,33 +1154,14 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  tierCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
+  tierCardHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   tierIcon: { fontSize: 28 },
   tierCardHeaderText: { flex: 1 },
-  tierName: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  tierThreshold: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
+  tierName: { fontSize: 16, fontWeight: "700" },
+  tierThreshold: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
   tierBenefitsList: { gap: 6, paddingLeft: 4 },
-  tierBenefitRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  tierBenefitText: {
-    fontSize: 12,
-    color: colors.textSoft,
-    flex: 1,
-  },
+  tierBenefitRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  tierBenefitText: { fontSize: 12, color: colors.textSoft, flex: 1 },
   nextTierProgress: { gap: 6 },
   progressTrackSmall: {
     height: 4,
@@ -1039,10 +1169,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     overflow: "hidden",
   },
-  progressFillSmall: {
-    height: "100%",
-    borderRadius: 2,
-  },
+  progressFillSmall: { height: "100%", borderRadius: 2 },
   nextTierProgressText: {
     fontSize: 11,
     color: colors.textMuted,
@@ -1050,11 +1177,7 @@ const styles = StyleSheet.create({
   },
 
   // History
-  rulesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
+  rulesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   ruleChip: {
     backgroundColor: "rgba(20,28,45,0.7)",
     borderRadius: 12,
@@ -1066,15 +1189,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
   },
-  rulePoints: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.accent,
-  },
-  ruleLabel: {
-    fontSize: 11,
-    color: colors.textSoft,
-  },
+  rulePoints: { fontSize: 13, fontWeight: "700", color: colors.accent },
+  ruleLabel: { fontSize: 11, color: colors.textSoft },
   historyRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1094,27 +1210,13 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   historyInfo: { flex: 1 },
-  historyLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.text,
-  },
-  historyDesc: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
+  historyLabel: { fontSize: 13, fontWeight: "600", color: colors.text },
+  historyDesc: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
   historyRight: { alignItems: "flex-end", gap: 2 },
-  historyPoints: {
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  historyDate: {
-    fontSize: 10,
-    color: colors.textMuted,
-  },
+  historyPoints: { fontSize: 16, fontWeight: "700" },
+  historyDate: { fontSize: 10, color: colors.textMuted },
 
-  // Empty
+  // Empty states
   emptyState: {
     alignItems: "center",
     paddingVertical: 60,
@@ -1122,11 +1224,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   emptyStateIcon: { fontSize: 56 },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.text,
-  },
+  emptyStateTitle: { fontSize: 20, fontWeight: "700", color: colors.text },
   emptyStateDesc: {
     fontSize: 14,
     color: colors.textMuted,

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@auth0/nextjs-auth0/client";
-import { Search, CalendarDays, Clock3, User, Banknote } from "lucide-react";
+import { Search, CalendarDays, Clock3, Banknote } from "lucide-react";
+import { toast } from "sonner";
 
 type AppointmentStatus = "pending" | "confirmed" | "cancelled" | "completed";
 
@@ -27,6 +28,7 @@ type Appointment = {
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<
@@ -80,6 +82,37 @@ export default function AppointmentsPage() {
     });
   }, [appointments, search, filterStatus]);
 
+  async function handleComplete(id: string) {
+    setLoadingId(id);
+    try {
+      const token = await getAccessToken();
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
+    const res = await fetch(`${apiBase}/api/appointment/${id}/complete`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken: token }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    // Update UI immediately (no full reload needed)
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === id ? { ...a, status: "completed" } : a
+      )
+    );
+    toast.success("Appointment marked as completed!");
+
+  } catch (err) {
+    toast.error("Failed to mark appointment as completed.");
+    console.error(err);
+  } finally {
+    setLoadingId(null);
+  }
+}
+
   return (
     <div className="space-y-6">
       <div>
@@ -131,8 +164,13 @@ export default function AppointmentsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredAppointments.map((appt) => (
-            <AppointmentCard key={appt.id} appt={appt} />
-          ))}
+  <AppointmentCard
+    key={appt.id}
+    appt={appt}
+    onComplete={handleComplete}
+    loadingId={loadingId}
+  />
+))}
         </div>
       )}
     </div>
@@ -169,7 +207,7 @@ function FilterButton({
   );
 }
 
-function AppointmentCard({ appt }: { appt: Appointment }) {
+function AppointmentCard({ appt, onComplete, loadingId }: { appt: Appointment; onComplete: (id: string) => void; loadingId: string | null; }) {
   return (
     <div className="rounded-xl border border-gray-700 bg-[#111827] p-5">
       <div className="flex items-center justify-between">
@@ -202,6 +240,16 @@ function AppointmentCard({ appt }: { appt: Appointment }) {
           ))}
         </div>
       </div>
+      {/* ACTION BUTTON */}
+      {appt.status === "confirmed" && (
+        <button
+          onClick={() => onComplete(appt.id)}
+          className="mt-4 w-full rounded-lg bg-green-600 py-2 text-sm font-medium hover:bg-green-500"
+          disabled={loadingId === appt.id}
+        >
+          {loadingId === appt.id ? "Updating..." : "Mark as Completed"}
+        </button>
+      )}
     </div>
   );
 }

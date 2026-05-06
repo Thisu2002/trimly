@@ -1,4 +1,13 @@
 // D:\trimly\apps\mobile\src\types\loyalty.ts
+// (also copy to apps/web/src/types/loyalty.ts)
+
+export interface CustomerSalonEntry {
+  salonId: string;
+  salonName: string;
+  hasLoyaltyProgram: boolean;
+  customerPoints: number | null; // null = no points record yet
+}
+
 export interface CustomerPointsSummary {
   total: number;
   lifetime: number;
@@ -43,8 +52,8 @@ export interface HistoryEntry {
   type: HistoryEntryType;
   label: string;
   description: string;
-  points: number; // positive = earned, negative = spent
-  date: string;   // ISO string
+  points: number;
+  date: string;
 }
 
 export interface LoyaltyRule {
