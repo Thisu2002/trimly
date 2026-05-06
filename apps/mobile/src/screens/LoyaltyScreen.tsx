@@ -35,8 +35,9 @@ async function fetchCustomerSalons(
   idToken: string,
 ): Promise<CustomerSalonEntry[]> {
   const res = await fetch(
-    `${API_BASE_URL}/api/loyalty/customer/salons?idToken=${idToken}`,
+    `${API_BASE_URL}/api/loyalty-customer/salons?idToken=${idToken}`,
   );
+  console.log("fetchCustomerSalons response:", res);
   if (!res.ok) throw new Error("Failed to load salons");
   return res.json();
 }
@@ -46,7 +47,7 @@ async function fetchLoyaltySummary(
   salonId: string,
 ): Promise<LoyaltySummaryResponse> {
   const res = await fetch(
-    `${API_BASE_URL}/api/loyalty/customer/summary?idToken=${idToken}&salonId=${salonId}`,
+    `${API_BASE_URL}/api/loyalty-customer/summary?idToken=${idToken}&salonId=${salonId}`,
   );
   if (!res.ok) throw new Error("Failed to load loyalty data");
   return res.json();
@@ -56,7 +57,7 @@ async function redeemReward(
   idToken: string,
   rewardId: string,
 ): Promise<{ ok: boolean; message: string; newBalance: number }> {
-  const res = await fetch(`${API_BASE_URL}/api/loyalty/customer/redeem`, {
+  const res = await fetch(`${API_BASE_URL}/api/loyalty-customer/redeem`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ idToken, rewardId }),

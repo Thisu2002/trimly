@@ -1,5 +1,4 @@
 // D:\trimly\services\api\src\routes\loyaltyCustomer.ts
-// Mount in app.ts: app.use("/api/loyalty/customer", loyaltyCustomerRouter)
 
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
@@ -27,7 +26,6 @@ async function resolveCustomer(idToken: string) {
   return { user, customer: user.customerProfile };
 }
 
-// ─── GET /api/loyalty/customer/salons ────────────────────────────────────────
 // Returns all salons the customer has visited (any appointment status),
 // with their loyalty program info if one exists.
 // This is used to populate the salon selector on the LoyaltyScreen.
@@ -86,7 +84,6 @@ router.get("/salons", async (req, res) => {
   }
 });
 
-// ─── GET /api/loyalty/customer/summary ───────────────────────────────────────
 // Full loyalty data for one specific salon.
 // Requires salonId — customer must have at least one appointment at this salon.
 
@@ -259,8 +256,6 @@ router.get("/summary", async (req, res) => {
     handleError(res, err);
   }
 });
-
-// ─── POST /api/loyalty/customer/redeem ───────────────────────────────────────
 
 router.post("/redeem", async (req, res) => {
   try {

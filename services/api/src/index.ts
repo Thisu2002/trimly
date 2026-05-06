@@ -16,7 +16,7 @@ import hairProfileRoutes from "./routes/hairProfile";
 import hairGenerateRoutes from "./routes/hairGenerate";
 import facePhotosRoutes from "./routes/facePhotos";
 import loyaltyRoutes from "./routes/loyalty";
-import loyaltyMobileRoutes from "./routes/loyaltyCustomer";
+import loyaltyCustomerRoutes from "./routes/loyaltyCustomer";
 import stylistDashboardRoutes from "./routes/stylistDashboard";
 
 import path from "path";
@@ -60,7 +60,7 @@ app.use("/api/hair-profile", hairProfileRoutes);
 app.use("/api/hair-generate", hairGenerateRoutes);
 app.use("/api/face-photos", facePhotosRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
-app.use("/api/loyalty/customer", loyaltyMobileRoutes);
+app.use("/api/loyalty-customer", loyaltyCustomerRoutes);
 app.use("/api/stylist-dashboard", stylistDashboardRoutes);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
