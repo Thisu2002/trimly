@@ -193,49 +193,4 @@ router.delete("/rewards/:id", async (req, res) => {
   }
 });
 
-// ─── POST /api/loyalty/award-points ──────────────────────────────────────────
-
-router.post("/award-points", async (req, res) => {
-  try {
-    const { idToken, customerId, action, spendLkr } = req.body;
-    if (!idToken) return res.status(401).json({ error: "Missing token" });
-
-    const programId = await resolveProgram(String(idToken));
-    const rule = await prisma.loyaltyRule.findUnique({
-      where: { programId_action: { programId, action } },
-    });
-    if (!rule) return res.status(404).json({ error: "Rule not found" });
-
-    let pointsToAdd = rule.points;
-    if (action === "spending_per_100" && spendLkr) {
-      pointsToAdd = Math.floor(spendLkr / 100) * rule.points;
-    }
-
-    const cp = await prisma.customerPoints.upsert({
-      where: { customerId },
-      create: { customerId, totalPoints: pointsToAdd, lifetimePoints: pointsToAdd },
-      update: {
-        totalPoints: { increment: pointsToAdd },
-        lifetimePoints: { increment: pointsToAdd },
-      },
-    });
-
-    const newLifetime = cp.lifetimePoints + pointsToAdd;
-    const tiers = await prisma.loyaltyTier.findMany({
-      where: { programId },
-      orderBy: { sortOrder: "desc" },
-    });
-    const newTier = tiers.find((t) => newLifetime >= t.threshold) ?? tiers[tiers.length - 1];
-
-    await prisma.customerPoints.update({
-      where: { customerId },
-      data: { tierId: newTier.id },
-    });
-
-    res.json({ pointsAdded: pointsToAdd, newTotal: cp.totalPoints + pointsToAdd });
-  } catch (err) {
-    handleError(res, err);
-  }
-});
-
 export default router;
