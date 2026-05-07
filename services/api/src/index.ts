@@ -18,6 +18,7 @@ import facePhotosRoutes from "./routes/facePhotos";
 import loyaltyRoutes from "./routes/loyalty";
 import loyaltyCustomerRoutes from "./routes/loyaltyCustomer";
 import stylistDashboardRoutes from "./routes/stylistDashboard";
+import trendingStylesRoutes from "./routes/trendingStyles";
 
 import path from "path";
 
@@ -45,6 +46,11 @@ app.use(
   express.static(path.join(__dirname, "../uploads"))
 );
 
+app.use(
+  "/assets", 
+  express.static(path.join(__dirname, "../../../apps/mobile/assets"))
+);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use("/api/salon", salonRoutes);
@@ -62,6 +68,7 @@ app.use("/api/face-photos", facePhotosRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
 app.use("/api/loyalty-customer", loyaltyCustomerRoutes);
 app.use("/api/stylist-dashboard", stylistDashboardRoutes);
+app.use("/api/trending-styles", trendingStylesRoutes);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/auth/me", async (req, res) => {

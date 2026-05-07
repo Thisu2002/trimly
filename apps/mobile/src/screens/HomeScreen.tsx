@@ -7,6 +7,8 @@ import {
   View,
   Image,
   Dimensions,
+  FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,12 +18,16 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CompositeNavigationProp } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
-import { RootStackParamList, TabParamList  } from "../navigation/RootNavigator";
+import { RootStackParamList, TabParamList } from "../navigation/RootNavigator";
+import { API_BASE_URL } from "../config/api";
 
 const { width } = Dimensions.get("window");
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Props = {
   user: AuthUser | null;
@@ -31,13 +37,69 @@ type Props = {
   onBrowseAppointments: () => void;
   onOpenLoyalty: () => void;
 };
- 
-// HomeScreen lives inside the Tab navigator, but needs to push root stack screens.
-// CompositeNavigationProp gives us both tab + stack methods.
+
 type NavProp = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, "HomeTab">,
   NativeStackNavigationProp<RootStackParamList>
 >;
+
+type TrendingStyle = {
+  id: string;
+  name: string;
+  category: string;
+  coverImageUrl: string;
+  tag: string;
+  serviceCount: number;
+};
+
+// ─── Tag color mapping ────────────────────────────────────────────────────────
+
+function tagColor(tag: string): string {
+  if (tag === "Most Popular") return colors.star;
+  if (tag === "Trending")     return colors.accent;
+  return colors.primaryLight;
+}
+
+// ─── Trending card ────────────────────────────────────────────────────────────
+
+const CARD_W = width * 0.38;
+const CARD_H = CARD_W * 1.35;
+
+function TrendingCard({ item }: { item: TrendingStyle }) {
+  const tc = tagColor(item.tag);
+  return (
+    <View style={trend.card}>
+      <ImageBackground
+        source={{ uri: item.coverImageUrl }}
+        style={trend.image}
+        imageStyle={trend.imageStyle}
+        resizeMode="cover"
+      >
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.78)"]}
+          style={trend.overlay}
+        >
+          <View style={[trend.tagBadge, { borderColor: tc }]}>
+            <Text style={[trend.tagText, { color: tc }]}>{item.tag}</Text>
+          </View>
+          <Text style={trend.name} numberOfLines={2}>{item.name}</Text>
+        </LinearGradient>
+      </ImageBackground>
+    </View>
+  );
+}
+
+// ─── Trending skeleton (shown while loading) ──────────────────────────────────
+
+function TrendingSkeleton() {
+  return (
+    <View style={[trend.card, trend.skeleton]}>
+      <View style={trend.skeletonShimmer} />
+    </View>
+  );
+}
+
+// ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function HomeScreen({
   user,
@@ -47,6 +109,32 @@ export default function HomeScreen({
   onOpenLoyalty,
 }: Props) {
   const navigation = useNavigation<NavProp>();
+  const insets = useSafeAreaInsets();
+  const bottomPad = 62 + insets.bottom + 12;
+  const firstName = user?.name?.split(" ")[0] ?? "there";
+
+  // ── Trending styles state ──────────────────────────────────────────────────
+  const [trendingStyles, setTrendingStyles] = useState<TrendingStyle[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTrendingStyles();
+  }, []);
+
+  async function fetchTrendingStyles() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/trending-styles?limit=6`);
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const data = await res.json();
+      setTrendingStyles(data.styles ?? []);
+    } catch (err) {
+      console.warn("[HomeScreen] trending styles fetch failed:", err);
+      // Silently fail — section just won't render
+      setTrendingStyles([]);
+    } finally {
+      setTrendingLoading(false);
+    }
+  }
 
   async function handleLogout() {
     try {
@@ -57,10 +145,6 @@ export default function HomeScreen({
       Alert.alert("Logout failed", "Could not log out properly.");
     }
   }
-
-  const firstName = user?.name?.split(" ")[0] ?? "there";
-  const insets = useSafeAreaInsets();
-  const bottomPad = 62 + insets.bottom + 12;
 
   return (
     <LinearGradient
@@ -82,7 +166,6 @@ export default function HomeScreen({
               resizeMode="contain"
             />
             <View style={styles.headerRight}>
-              {/* FIX: real rewards button navigating to LoyaltyScreen */}
               <Pressable onPress={onOpenLoyalty} style={styles.rewardsBtn}>
                 <LinearGradient
                   colors={["rgba(42,79,122,0.6)", "rgba(0,59,143,0.4)"]}
@@ -105,10 +188,12 @@ export default function HomeScreen({
               </Pressable>
             </View>
           </View>
-          <View style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}>
-                <Text style={styles.greeting}>Good day,</Text>
-                <Text style={styles.userName}>{firstName}!</Text>
-              </View>
+
+          {/* ── Greeting ── */}
+          <View style={styles.greetingRow}>
+            <Text style={styles.greeting}>Good day, </Text>
+            <Text style={styles.userName}>{firstName}!</Text>
+          </View>
 
           {/* ── Hero Banner ── */}
           <ImageBackground
@@ -118,27 +203,27 @@ export default function HomeScreen({
             resizeMode="cover"
           >
             <LinearGradient
-              colors={["rgba(2,2,2,0.55)", "rgba(2,2,2,0.55)"]}
+              colors={["rgba(2,2,2,0.45)", "rgba(0,30,80,0.72)"]}
               style={styles.heroBannerOverlay}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-            <View style={styles.heroBannerInner}>
-              <View style={styles.heroTextBlock}>
-                <Text style={styles.heroBannerTag}>✦ BOOK NOW</Text>
-                <Text style={styles.heroBannerTitle}>
-                  Find your{"\n"}perfect look
-                </Text>
-                <Text style={styles.heroBannerSub}>
-                  Discover top salons near you
-                </Text>
+              <View style={styles.heroBannerInner}>
+                <View style={styles.heroTextBlock}>
+                  <Text style={styles.heroBannerTag}>✦ BOOK NOW</Text>
+                  <Text style={styles.heroBannerTitle}>
+                    Find your{"\n"}perfect look
+                  </Text>
+                  <Text style={styles.heroBannerSub}>
+                    Discover top salons near you
+                  </Text>
+                </View>
               </View>
-            </View>
 
-            <Pressable style={styles.heroCTA} onPress={onBrowseSalons}>
-              <Text style={styles.heroCTAText}>Browse Salons</Text>
-              <Ionicons name="arrow-forward" size={16} color={colors.white} />
-            </Pressable>
+              <Pressable style={styles.heroCTA} onPress={onBrowseSalons}>
+                <Text style={styles.heroCTAText}>Browse Salons</Text>
+                <Ionicons name="arrow-forward" size={16} color={colors.white} />
+              </Pressable>
             </LinearGradient>
           </ImageBackground>
 
@@ -146,8 +231,8 @@ export default function HomeScreen({
           <Text style={styles.sectionTitle}>Quick Access</Text>
           <View style={styles.quickRow}>
             <Pressable style={styles.quickCard} onPress={onBrowseAppointments}>
-              <View style={[styles.quickIcon, { backgroundColor: "rgba(34,197,94,0.15)" }]}>
-                <Ionicons name="calendar-outline" size={22} color={colors.accent} />
+              <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.12)" }]}>
+                <Ionicons name="calendar-outline" size={22} color={colors.primaryLight} />
               </View>
               <Text style={styles.quickLabel}>My{"\n"}Bookings</Text>
             </Pressable>
@@ -166,8 +251,8 @@ export default function HomeScreen({
               style={styles.quickCard}
               onPress={() => navigation.navigate("StyleRecommendation")}
             >
-              <View style={[styles.quickIcon, { backgroundColor: "rgba(244,178,35,0.15)" }]}>
-                <Ionicons name="sparkles-outline" size={22} color={colors.star} />
+              <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.12)" }]}>
+                <Ionicons name="sparkles-outline" size={22} color={colors.primaryLight} />
               </View>
               <Text style={styles.quickLabel}>Style{"\n"}Tips</Text>
             </Pressable>
@@ -183,8 +268,54 @@ export default function HomeScreen({
             </Pressable>
           </View>
 
+          {/* ── Section: Trending Styles (live from DB) ── */}
+          {(trendingLoading || trendingStyles.length > 0) && (
+            <>
+              <View style={styles.sectionHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>Trending Styles</Text>
+                  <Text style={styles.sectionSub}>What's popular this season</Text>
+                </View>
+                <Pressable
+                  style={styles.seeAllBtn}
+                  onPress={() => navigation.navigate("StyleRecommendation")}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                  <Ionicons name="chevron-forward" size={13} color={colors.primaryLight} />
+                </Pressable>
+              </View>
+
+              {trendingLoading ? (
+                // Skeleton shimmer while loading
+                <FlatList
+                  data={[1, 2, 3]}
+                  keyExtractor={(item) => String(item)}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  scrollEnabled={false}
+                  contentContainerStyle={styles.trendList}
+                  ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                  renderItem={() => <TrendingSkeleton />}
+                  style={styles.trendScroll}
+                />
+              ) : (
+                <FlatList
+                  data={trendingStyles}
+                  keyExtractor={(item) => item.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.trendList}
+                  ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                  renderItem={({ item }) => <TrendingCard item={item} />}
+                  nestedScrollEnabled
+                  style={styles.trendScroll}
+                />
+              )}
+            </>
+          )}
+
           {/* ── Section: AI Features ── */}
-          <Text style={styles.sectionTitle}>AI Features</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 28 }]}>AI Features</Text>
 
           {/* Virtual Mirror Card */}
           <Pressable
@@ -192,14 +323,14 @@ export default function HomeScreen({
             onPress={() => navigation.navigate("Mirror", {})}
           >
             <LinearGradient
-              colors={["rgba(20,28,45,0.9)", "rgba(30,42,70,0.7)"]}
+              colors={["rgba(20,28,45,0.9)", "rgba(50, 110, 249, 0.7)"]}
               style={styles.featureCardGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.featureCardLeft}>
                 <View style={[styles.featureIconCircle, { backgroundColor: "rgba(171,213,255,0.1)" }]}>
-                <Ionicons name="camera-outline" size={30} color={colors.primaryLight} />
+                  <Ionicons name="camera-outline" size={30} color={colors.primaryLight} />
                 </View>
                 <View style={styles.featureCardText}>
                   <Text style={styles.featureCardTitle}>Virtual Mirror</Text>
@@ -263,24 +394,67 @@ export default function HomeScreen({
   );
 }
 
+// ─── Trending card styles ─────────────────────────────────────────────────────
+const trend = StyleSheet.create({
+  card: {
+    width: CARD_W,
+    height: CARD_H,
+    borderRadius: 18,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  image: { width: "100%", height: "100%" },
+  imageStyle: { borderRadius: 18 },
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 12,
+    gap: 6,
+  },
+  tagBadge: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  tagText: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  name: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.white,
+    lineHeight: 17,
+  },
+  // Skeleton
+  skeleton: {
+    backgroundColor: "rgba(20,28,45,0.7)",
+  },
+  skeletonShimmer: {
+    flex: 1,
+    backgroundColor: "rgba(171,213,255,0.04)",
+  },
+});
+
+// ─── Screen-level styles ──────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 18, paddingTop: 8 },
 
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   headerLogo: { width: 80, height: 80 },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
 
-  // Rewards button (FIX: replaces the broken <Text>Rewards Icon</Text>)
   rewardsBtn: {
     borderRadius: 20,
     overflow: "hidden",
@@ -294,12 +468,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  rewardsBtnLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.primaryLight,
-  },
+  rewardsBtnLabel: { fontSize: 12, fontWeight: "600", color: colors.primaryLight },
 
+  greetingRow: { flexDirection: "row", marginBottom: 15 },
   greeting: {
     fontSize: 15,
     color: colors.textMuted,
@@ -312,6 +483,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.text,
   },
+
   avatarBtn: { padding: 2 },
   avatar: {
     width: 42,
@@ -324,14 +496,13 @@ const styles = StyleSheet.create({
   },
   avatarLetter: { fontSize: 18, fontWeight: "700", color: colors.white },
 
-  // Hero Banner
   heroBanner: {
     borderRadius: 22,
     marginBottom: 28,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.glassBorder,
-    minHeight: 170,
+    minHeight: 185,
   },
   heroBannerImage: { borderRadius: 22 },
   heroBannerOverlay: { padding: 20, flex: 1 },
@@ -370,17 +541,33 @@ const styles = StyleSheet.create({
   },
   heroCTAText: { color: colors.white, fontWeight: "700", fontSize: 14 },
 
-  // Section Title
   sectionTitle: {
     fontSize: 12,
     fontWeight: "700",
     color: colors.textMuted,
     textTransform: "uppercase",
     letterSpacing: 1.5,
-    marginBottom: 12,
+    marginBottom: 4,
   },
+  sectionSub: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 14,
+    opacity: 0.7,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  seeAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    paddingTop: 2,
+  },
+  seeAllText: { fontSize: 12, fontWeight: "600", color: colors.primaryLight },
 
-  // Quick Actions
   quickRow: { flexDirection: "row", gap: 10, marginBottom: 28 },
   quickCard: {
     flex: 1,
@@ -407,7 +594,13 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
 
-  // Feature Cards
+  trendScroll: { marginHorizontal: -18 },
+  trendList: {
+    paddingLeft: 18,
+    paddingRight: 18,
+    paddingVertical: 4,
+  },
+
   featureCard: {
     borderRadius: 20,
     marginBottom: 12,
@@ -429,7 +622,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  featureEmoji: { fontSize: 26 },
   featureCardText: { flex: 1 },
   featureCardTitle: {
     fontSize: 15,
@@ -447,7 +639,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(171,213,255,0.08)",
   },
 
-  // Profile chip
   profileChip: {
     flexDirection: "row",
     alignItems: "center",

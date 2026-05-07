@@ -37,7 +37,6 @@ async function fetchCustomerSalons(
   const res = await fetch(
     `${API_BASE_URL}/api/loyalty-customer/salons?idToken=${idToken}`,
   );
-  console.log("fetchCustomerSalons response:", res);
   if (!res.ok) throw new Error("Failed to load salons");
   return res.json();
 }

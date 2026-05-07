@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
+import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { API_BASE_URL } from "../config/api";
 import { HairProfile } from "../types/salon";
@@ -82,15 +83,22 @@ function OptionRow<T extends string>({
   );
 }
 
-export default function MirrorScreen({ route, navigation: navProp, idToken, userSub }: Props) {
-  const hookNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+export default function MirrorScreen({
+  route,
+  navigation: navProp,
+  idToken,
+  userSub,
+}: Props) {
+  const hookNav =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const navigation = navProp ?? hookNav;
 
   const { detectedFaceShape, landmarks } = route?.params ?? {};
 
   const [step, setStep] = useState<Step>("camera");
 
-{/*DISABLED DUE TO PRIVACY CONCERNS
+  {
+    /*DISABLED DUE TO PRIVACY CONCERNS
 // On mount: check if user already has face photos → skip straight to VirtualTryOn
 // useEffect(() => {
 //   async function checkExistingPhotos() {
@@ -118,10 +126,13 @@ export default function MirrorScreen({ route, navigation: navProp, idToken, user
 //   }
 //   checkExistingPhotos();
 // }, []); // run once on mount
-*/}
+*/
+  }
 
   // Profile fields
-  const [faceShape, setFaceShape] = useState<string | null>(detectedFaceShape ?? null);
+  const [faceShape, setFaceShape] = useState<string | null>(
+    detectedFaceShape ?? null,
+  );
   const [hairType, setHairType] = useState<string | null>(null);
   const [hairLength, setHairLength] = useState<string | null>(null);
   const [styleGoal, setStyleGoal] = useState<string | null>(null);
@@ -212,11 +223,18 @@ export default function MirrorScreen({ route, navigation: navProp, idToken, user
 
             {/* Face scan CTA */}
             <Pressable
-              style={styles.scanCard}
+              style={({ pressed }) => [
+                styles.scanCard,
+                pressed && styles.scanCardPressed,
+              ]}
               onPress={() => navigation.navigate("FaceScan")}
             >
-              <Text style={styles.cameraEmoji}>🫥</Text>
+              <View style={styles.cameraIconWrap}>
+                <Ionicons name="scan-circle" size={68} color={colors.primary} />
+              </View>
+
               <Text style={styles.cameraPlaceholderTitle}>Scan My Face</Text>
+
               <Text style={styles.cameraPlaceholderSub}>
                 Turn left · center · right{"\n"}
                 We'll detect your face shape automatically{"\n"}
@@ -398,6 +416,10 @@ const styles = StyleSheet.create({
     padding: 32,
     marginBottom: 20,
   },
+  scanCardPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.9,
+  },
   cameraPage: {
     flex: 1,
     backgroundColor: colors.page,
@@ -415,7 +437,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 32,
   },
-  cameraEmoji: { fontSize: 56, marginBottom: 16 },
+  cameraIconWrap: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(171, 213, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 18,
+
+    shadowColor: colors.primary,
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
   cameraPlaceholderTitle: {
     fontSize: 18,
     fontWeight: "800",

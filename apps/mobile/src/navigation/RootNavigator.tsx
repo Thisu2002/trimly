@@ -82,8 +82,7 @@ export type TabParamList = {
   HomeTab: undefined;
   SalonsTab: undefined;
   AppointmentsTab: undefined;
-  StyleTab: undefined;
-  MirrorTab: undefined;
+  ProfileTab: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -126,27 +125,25 @@ function MainTabs({
         tabBarInactiveTintColor: colors.textMuted,
         tabBarLabelStyle: tabStyles.tabLabel,
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
-          const iconSize = focused ? size + 2 : size;
+  let iconName: keyof typeof Ionicons.glyphMap;
+  const iconSize = focused ? size + 2 : size;
 
-          if (route.name === "HomeTab") {
-            iconName = focused ? "home" : "home-outline";
-          } else if (route.name === "SalonsTab") {
-            iconName = focused ? "cut" : "cut-outline";
-          } else if (route.name === "AppointmentsTab") {
-            iconName = focused ? "calendar" : "calendar-outline";
-          } else if (route.name === "StyleTab") {
-            iconName = focused ? "sparkles" : "sparkles-outline";
-          } else {
-            iconName = focused ? "camera" : "camera-outline";
-          }
+  if (route.name === "HomeTab") {
+    iconName = focused ? "home" : "home-outline";
+  } else if (route.name === "SalonsTab") {
+    iconName = focused ? "cut" : "cut-outline";
+  } else if (route.name === "AppointmentsTab") {
+    iconName = focused ? "calendar" : "calendar-outline";
+  } else {
+    iconName = focused ? "person" : "person-outline";
+  }
 
-          return (
-            <View style={[tabStyles.iconWrap, focused && tabStyles.iconWrapActive]}>
-              <Ionicons name={iconName} size={iconSize} color={color} />
-            </View>
-          );
-        },
+  return (
+    <View style={[tabStyles.iconWrap, focused && tabStyles.iconWrapActive]}>
+      <Ionicons name={iconName} size={iconSize} color={color} />
+    </View>
+  );
+},
       })}
     >
       <Tab.Screen
@@ -182,22 +179,17 @@ function MainTabs({
       </Tab.Screen>
 
       <Tab.Screen
-        name="StyleTab"
-        options={{ tabBarLabel: "Style" }}
+        name="ProfileTab"
+        options={{ tabBarLabel: "Profile" }}
       >
-        {() => <StyleRecommendationScreen userSub={user?.sub} />}
-      </Tab.Screen>
-
-      <Tab.Screen
-        name="MirrorTab"
-        options={{ tabBarLabel: "Mirror" }}
-      >
-        {() => (
-          <MirrorScreen
-            idToken={idToken!}
-            userSub={user?.sub}
-          />
-        )}
+        {() => <HomeScreen
+    user={user}
+    idToken={idToken}
+    onLogout={onLogout}
+    onBrowseSalons={() => {}}
+    onBrowseAppointments={() => {}}
+    onOpenLoyalty={() => {}}
+  />}
       </Tab.Screen>
     </Tab.Navigator>
   );
