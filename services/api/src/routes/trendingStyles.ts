@@ -40,16 +40,16 @@ function toAbsoluteUrl(path: string, req: Request): string {
 // };
 
 const STYLE_NAME_IMAGES: Record<string, string> = {
-  "Layered Bob":       "https://images.unsplash.com/photo-1595475884562-073c30d45670?w=400&q=80",
-  "Textured Lob":      "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80",
-  "Crew Cut":          "https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&q=80",
-  "Pixie Cut":         "https://images.unsplash.com/photo-1605980776566-0486c3ac7617?w=400&q=80",
+  "Layered Bob":       "https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&q=80",
+  "Textured Lob":      "https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&q=80",
+  "Crew Cut":          "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=400&q=80",
+  "Pixie Cut":         "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=400&q=80",
   "Balayage":          "https://images.unsplash.com/photo-1560869713-7d0a29430803?w=400&q=80",
   "Highlights":        "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=400&q=80",
-  "Keratin Treatment": "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=400&q=80",
-  "Hair Spa":          "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=400&q=80",
+  "Keratin Treatment": "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=400&q=80",
+  "Hair Spa":          "https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&q=80",
   "Blow Dry":          "https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?w=400&q=80",
-  "Deep Conditioning": "https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=400&q=80",
+  "Deep Conditioning": "https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?w=400&q=80",
 };
 
 const CATEGORY_IMAGES: Record<string, string> = {
