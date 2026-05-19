@@ -1,3 +1,4 @@
+//D:\trimly\services\api\src\routes\stylist.ts
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { verifyIdToken } from "../lib/auth";

@@ -19,6 +19,7 @@ import loyaltyRoutes from "./routes/loyalty";
 import loyaltyCustomerRoutes from "./routes/loyaltyCustomer";
 import stylistDashboardRoutes from "./routes/stylistDashboard";
 import trendingStylesRoutes from "./routes/trendingStyles";
+import inventoryRoutes from "./routes/inventory";
 
 import path from "path";
 
@@ -69,6 +70,7 @@ app.use("/api/loyalty", loyaltyRoutes);
 app.use("/api/loyalty-customer", loyaltyCustomerRoutes);
 app.use("/api/stylist-dashboard", stylistDashboardRoutes);
 app.use("/api/trending-styles", trendingStylesRoutes);
+app.use("/api/inventory", inventoryRoutes);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/auth/me", async (req, res) => {

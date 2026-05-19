@@ -123,12 +123,6 @@ router.get("/salon", async (req, res) => {
 });
 
 // ─── PATCH /api/appointment/:id/complete  (admin marks appointment done) ──────
-//
-// This is the standard place to complete an appointment.
-// The admin does this from the salon appointments view in the web dashboard
-// after the customer has received the service.
-// Points are awarded automatically here.
-
 router.patch("/:id/complete", async (req, res) => {
   try {
     const idToken = req.body.idToken as string | undefined;
@@ -146,7 +140,6 @@ router.patch("/:id/complete", async (req, res) => {
       return res.status(403).json({ error: "Not allowed" });
     }
 
-    // Fetch the appointment — must belong to this admin's salon
     const appointment = await prisma.appointment.findUnique({
       where: { id: req.params.id },
     });
@@ -173,8 +166,6 @@ router.patch("/:id/complete", async (req, res) => {
       data: { status: "completed" },
     });
 
-    // Award loyalty points — wrapped in try/catch so a loyalty failure
-    // never rolls back the appointment completion
     try {
       await guardAndAwardForAppointment(
         appointment.id,
@@ -192,8 +183,6 @@ router.patch("/:id/complete", async (req, res) => {
     res.status(500).json({ error: "Failed to complete appointment" });
   }
 });
-
-// ─── PATCH /api/appointment/:id/cancel  (admin or customer cancels) ───────────
 
 router.patch("/:id/cancel", async (req, res) => {
   try {

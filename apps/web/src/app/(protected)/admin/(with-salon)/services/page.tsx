@@ -1,3 +1,4 @@
+// D:\trimly\apps\web\src\app\(protected)\admin\(with-salon)\services\page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";

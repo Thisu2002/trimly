@@ -1,3 +1,4 @@
+//D:\trimly\services\api\src\routes\salonHours.ts
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { verifyIdToken } from "../lib/auth";

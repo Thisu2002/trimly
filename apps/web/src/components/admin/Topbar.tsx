@@ -1,7 +1,9 @@
+// D:\trimly\apps\web\src\components\admin\Topbar.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Bell, Search, Settings } from "lucide-react";
+import Link from "next/link";
 
 type Props = {
   user: {
@@ -16,13 +18,13 @@ type Props = {
 
 export default function Topbar({ user }: Props) {
   const [today] = useState(() =>
-  new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  })
-);
+    new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    })
+  );
 
   const displayName = user?.name || "User";
   const salonName = user?.adminSalon?.name || "Your Salon";
@@ -34,9 +36,7 @@ export default function Topbar({ user }: Props) {
         <h1 className="text-lg font-semibold text-white">
           Welcome back, {displayName}
         </h1>
-        <span className="text-xs text-gray-400">
-          {today || "\u00A0"}
-        </span>
+        <span className="text-xs text-gray-400">{today || "\u00A0"}</span>
       </div>
 
       <div className="hidden w-[400px] items-center rounded-xl border border-white/10 bg-[#111827] px-3 py-2 md:flex">
@@ -59,14 +59,18 @@ export default function Topbar({ user }: Props) {
 
         <div className="h-6 w-px bg-white/10" />
 
-        <div className="flex cursor-pointer items-center gap-2">
+        {/* ↓ now a link */}
+        <Link
+          href="/admin/profile"
+          className="flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-white/5"
+        >
           <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ABD5FF]/50 bg-gradient-to-br from-[#274b72] to-[#13213a] text-sm font-semibold text-[#ABD5FF] shadow-[0_0_15px_rgba(171,213,255,0.6)]">
             {initial}
           </div>
           <span className="hidden text-sm text-gray-300 sm:block">
             {salonName}
           </span>
-        </div>
+        </Link>
       </div>
     </header>
   );

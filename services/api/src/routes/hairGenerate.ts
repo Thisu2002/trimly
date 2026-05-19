@@ -1,3 +1,4 @@
+//D:\trimly\services\api\src\routes\hairGenerate.ts
 import { Router } from "express";
 import sharp from "sharp";
 import FormData from "form-data";

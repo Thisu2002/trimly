@@ -1,3 +1,4 @@
+//D:\trimly\services\api\src\routes\loyalty.ts
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { resolveProgram } from "../lib/loyalty";
