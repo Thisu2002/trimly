@@ -5,8 +5,6 @@ import { verifyIdToken } from "../lib/auth";
 
 const router = Router();
 
-// ─── Helper ────────────────────────────────────────────────────────────────
-
 async function getAdminSalon(idToken: string) {
   const payload = await verifyIdToken(idToken);
   const sub = String(payload.sub);
@@ -22,7 +20,6 @@ async function getAdminSalon(idToken: string) {
   return user.adminSalon;
 }
 
-// ─── Inventory Categories ───────────────────────────────────────────────────
 
 // GET /api/inventory/categories
 router.get("/categories", async (req, res) => {
@@ -107,8 +104,6 @@ router.delete("/categories/:id", async (req, res) => {
   }
 });
 
-// ─── Inventory Items ────────────────────────────────────────────────────────
-
 // GET /api/inventory/items
 router.get("/items", async (req, res) => {
   try {
@@ -147,7 +142,6 @@ router.post("/items", async (req, res) => {
 
     const salon = await getAdminSalon(idToken);
 
-    // Validate category belongs to salon
     if (categoryId) {
       const cat = await prisma.inventoryCategory.findFirst({
         where: { id: categoryId, salonId: salon.id },

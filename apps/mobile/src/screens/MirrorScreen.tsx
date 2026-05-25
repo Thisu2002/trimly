@@ -190,7 +190,7 @@ export default function MirrorScreen({
       >
         <SafeAreaView style={styles.safe}>
           <View style={styles.centred}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.savingText}>Saving your profile…</Text>
           </View>
         </SafeAreaView>

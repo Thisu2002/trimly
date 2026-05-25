@@ -12,7 +12,7 @@ function handleError(res: any, err: any) {
   return res.status(status).json({ error: message });
 }
 
-// ─── GET /api/loyalty/stats ───────────────────────────────────────────────────
+// GET /api/loyalty/stats
 
 router.get("/stats", async (req, res) => {
   try {
@@ -43,7 +43,7 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-// ─── GET /api/loyalty/rules ───────────────────────────────────────────────────
+// GET /api/loyalty/rules
 
 router.get("/rules", async (req, res) => {
   try {
@@ -60,7 +60,7 @@ router.get("/rules", async (req, res) => {
   }
 });
 
-// ─── PATCH /api/loyalty/rules/:id ────────────────────────────────────────────
+// PATCH /api/loyalty/rules/:id
 
 router.patch("/rules/:id", async (req, res) => {
   try {
@@ -77,7 +77,7 @@ router.patch("/rules/:id", async (req, res) => {
   }
 });
 
-// ─── GET /api/loyalty/tiers ───────────────────────────────────────────────────
+// GET /api/loyalty/tiers
 
 router.get("/tiers", async (req, res) => {
   try {
@@ -94,7 +94,7 @@ router.get("/tiers", async (req, res) => {
   }
 });
 
-// ─── PATCH /api/loyalty/tiers/:id ────────────────────────────────────────────
+// PATCH /api/loyalty/tiers/:id
 
 router.patch("/tiers/:id", async (req, res) => {
   try {
@@ -111,7 +111,7 @@ router.patch("/tiers/:id", async (req, res) => {
   }
 });
 
-// ─── GET /api/loyalty/rewards ─────────────────────────────────────────────────
+// GET /api/loyalty/rewards
 
 router.get("/rewards", async (req, res) => {
   try {
@@ -139,7 +139,7 @@ router.get("/rewards", async (req, res) => {
   }
 });
 
-// ─── POST /api/loyalty/rewards ────────────────────────────────────────────────
+// POST /api/loyalty/rewards
 
 router.post("/rewards", async (req, res) => {
   try {
@@ -155,7 +155,7 @@ router.post("/rewards", async (req, res) => {
   }
 });
 
-// ─── PATCH /api/loyalty/rewards/:id ──────────────────────────────────────────
+// PATCH /api/loyalty/rewards/:id
 
 router.patch("/rewards/:id", async (req, res) => {
   try {
@@ -180,7 +180,7 @@ router.patch("/rewards/:id", async (req, res) => {
   }
 });
 
-// ─── DELETE /api/loyalty/rewards/:id ─────────────────────────────────────────
+// DELETE /api/loyalty/rewards/:id
 
 router.delete("/rewards/:id", async (req, res) => {
   try {

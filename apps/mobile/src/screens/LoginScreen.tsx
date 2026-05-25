@@ -1,3 +1,5 @@
+import { useState, useEffect, useRef } from "react";
+import LoadingOverlay from "../components/LoadingOverlay";
 import {
   Alert,
   Image,
@@ -5,6 +7,8 @@ import {
   StyleSheet,
   Text,
   View,
+  Animated,
+  Easing,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { jwtDecode } from "jwt-decode";
@@ -15,7 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { API_BASE_URL } from "../config/api";
 
 type Props = {
-  onLoginSuccess: (user: AuthUser, idToken: string) => void;
+onLoginSuccess: (user: AuthUser, idToken: string, isNewUser: boolean) => void;
 };
 
 type IdTokenPayload = {
@@ -26,8 +30,10 @@ type IdTokenPayload = {
 };
 
 export default function LoginScreen({ onLoginSuccess }: Props) {
+  const [isLoading, setIsLoading] = useState(false);
   async function handleLogin() {
     try {
+      setIsLoading(true);
       const credentials = await auth0.webAuth.authorize({
         scope: "openid profile email",
       });
@@ -46,6 +52,8 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
       const data = await res.json();
 
+      console.log("Is new user?", data.isNewUser);
+
       if (!res.ok) {
         throw new Error(data.error || "Failed to sync user");
       }
@@ -57,13 +65,56 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           picture: decoded.picture,
           sub: decoded.sub,
         },
-        credentials.idToken
+        credentials.idToken,
+        data.isNewUser
       );
     } catch (error) {
       console.log("Login error:", error);
       Alert.alert("Login failed", "Could not complete login.");
+      setIsLoading(false);
     }
   }
+
+  function ShineOverlay() {
+    const translateX = useRef(new Animated.Value(-220)).current;
+
+    useEffect(() => {
+      Animated.timing(translateX, {
+        toValue: 220,
+        duration: 900,
+        delay: 400,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }, []);
+
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 220,
+          height: 220,
+          overflow: "hidden",
+          transform: [{ translateX }],
+        }}
+      >
+        <View
+          style={{
+            width: 60,
+            height: 220,
+            backgroundColor: "#abd5ff",
+            opacity: 0.18,
+            transform: [{ skewX: "-20deg" }],
+          }}
+        />
+      </Animated.View>
+    );
+  }
+
+  if (isLoading) return <LoadingOverlay />;
 
   return (
     <LinearGradient
@@ -74,24 +125,26 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
     >
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.topSection}>
-          <Image
-            source={require("../../assets/trimly_logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <View style={{ position: "relative" }}>
+            <Image
+              source={require("../../assets/trimly_logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <ShineOverlay />
+          </View>
         </View>
 
         <View style={styles.bottomSection}>
           <View style={styles.card}>
             <Text style={styles.welcome}>Welcome 💫</Text>
-            <Text style={styles.title}>Consumer App</Text>
+            <Text style={styles.title}>Your style, your way.</Text>
             <Text style={styles.subtitle}>
-              Book salon services, choose stylists, and manage appointments
-              easily.
+              Discover salons, book appointments, and look your best.
             </Text>
 
             <Pressable style={styles.button} onPress={handleLogin}>
-              <Text style={styles.buttonText}>Login with Auth0</Text>
+              <Text style={styles.buttonText}>Get Started</Text>
             </Pressable>
           </View>
         </View>

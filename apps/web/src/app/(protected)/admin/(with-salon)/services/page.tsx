@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AddServiceModal from "@/components/admin/AddServiceModal";
 import { getAccessToken } from "@auth0/nextjs-auth0/client";
+import { Wrench } from "lucide-react";
 
 type Service = {
   id: string;
@@ -186,6 +187,12 @@ export default function ServicesPage() {
           </div>
         ))}
       </div>
+      {!loading && filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center text-center py-16 text-gray-500">
+              <Wrench className="h-8 w-8 mb-2" />{" "}
+              <p className="text-sm">No services found. Add a service.</p>
+            </div>
+          )}
       </div>
 
       <AddServiceModal

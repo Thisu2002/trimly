@@ -1,3 +1,4 @@
+//D:\trimly\services\api\src\lib\loyalty.ts
 import { prisma } from "../lib/prisma";
 import { verifyIdToken } from "../lib/auth";
 

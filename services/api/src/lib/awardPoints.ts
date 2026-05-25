@@ -7,6 +7,8 @@ interface AwardPointsParams {
   salonId: string;
   action: "service_completed" | "review_submitted" | "monthly_visit" | "spending_per_100";
   spendLkr?: number;
+  appointmentId?: string;
+  reviewId?: string;
 }
 
 interface AwardPointsResult {
@@ -22,6 +24,8 @@ export async function awardPoints({
   salonId,
   action,
   spendLkr,
+  appointmentId,
+  reviewId,
 }: AwardPointsParams): Promise<AwardPointsResult | null> {
   const program = await prisma.loyaltyProgram.findUnique({
     where: { salonId },
@@ -43,7 +47,6 @@ export async function awardPoints({
   if (pointsToAdd <= 0) return null;
 
   const result = await prisma.$transaction(async (tx) => {
-    // Per-salon upsert using the composite unique key
     const cp = await tx.customerPoints.upsert({
       where: { customerId_programId: { customerId, programId: program.id } },
       create: {
@@ -70,6 +73,18 @@ export async function awardPoints({
       data: { tierId: newTier.id },
     });
 
+    await tx.pointsTransaction.create({
+      data: {
+        customerId,
+        programId: program.id,
+        action,
+        label: rule.label,
+        points: pointsToAdd,
+        appointmentId: appointmentId ?? null,
+        reviewId: reviewId ?? null,
+      },
+    });
+
     return {
       pointsAdded: pointsToAdd,
       newTotal: cp.totalPoints + pointsToAdd,
@@ -82,10 +97,6 @@ export async function awardPoints({
   return result;
 }
 
-/**
- * Atomically checks the pointsAwarded flag before awarding.
- * Safe to call multiple times — only awards once per appointment.
- */
 export async function guardAndAwardForAppointment(
   appointmentId: string,
   customerId: string,
@@ -100,7 +111,7 @@ export async function guardAndAwardForAppointment(
   if (updated.count === 0) return; // already awarded
 
   await Promise.all([
-    awardPoints({ customerId, salonId, action: "service_completed" }),
-    awardPoints({ customerId, salonId, action: "spending_per_100", spendLkr: totalLkr }),
+    awardPoints({ customerId, salonId, action: "service_completed", appointmentId }),
+    awardPoints({ customerId, salonId, action: "spending_per_100", spendLkr: totalLkr, appointmentId }),
   ]);
 }

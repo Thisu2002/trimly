@@ -13,6 +13,7 @@ import { RootStackParamList } from "../navigation/RootNavigator";
 import { API_BASE_URL } from "../config/api";
 import { SalonDetail, ServiceItem } from "../types/salon";
 import { colors } from "../theme/colors";
+import LoadingOverlay from "../components/LoadingOverlay";
 
 type Props = NativeStackScreenProps<RootStackParamList, "BookingServices">;
 
@@ -64,7 +65,7 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
     setSelected(next.map((s, i) => ({ ...s, sequence: i + 1 })));
   }
 
-  if (!salon) return null;
+  if (!salon) return <LoadingOverlay />;
 
   return (
     <LinearGradient

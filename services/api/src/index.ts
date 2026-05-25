@@ -8,6 +8,7 @@ import serviceRoutes from "./routes/service";
 import stylistRoutes from "./routes/stylist";
 import salonHoursRoutes from "./routes/salonHours";
 import authRoutes from "./routes/auth";
+import usersRoutes from "./routes/users";
 import mobileRoutes from "./routes/mobile";
 import recommendationRoutes from "./routes/recommendation";
 import appointmentRoutes from "./routes/appointment";
@@ -20,6 +21,7 @@ import loyaltyCustomerRoutes from "./routes/loyaltyCustomer";
 import stylistDashboardRoutes from "./routes/stylistDashboard";
 import trendingStylesRoutes from "./routes/trendingStyles";
 import inventoryRoutes from "./routes/inventory";
+import reviewRoutes from "./routes/review";
 
 import path from "path";
 
@@ -35,22 +37,19 @@ app.use(
   cors({
     origin: true,
     credentials: true,
-  })
+  }),
 );
 
 app.use((req, res, next) => {
   console.log(`→ ${req.method} ${req.path}`);
   next();
 });
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "../uploads"))
-);
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-app.use(
-  "/assets", 
-  express.static(path.join(__dirname, "../../../apps/mobile/assets"))
-);
+// app.use(
+//   "/assets",
+//   express.static(path.join(__dirname, "../../../apps/mobile/assets"))
+// );
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
@@ -59,6 +58,7 @@ app.use("/api/service", serviceRoutes);
 app.use("/api/stylist", stylistRoutes);
 app.use("/api/salon-hours", salonHoursRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/users", usersRoutes);
 app.use("/api/mobile", mobileRoutes);
 app.use("/recommendation", recommendationRoutes);
 app.use("/api/appointment", appointmentRoutes);
@@ -71,6 +71,7 @@ app.use("/api/loyalty-customer", loyaltyCustomerRoutes);
 app.use("/api/stylist-dashboard", stylistDashboardRoutes);
 app.use("/api/trending-styles", trendingStylesRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/review", reviewRoutes);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/auth/me", async (req, res) => {
@@ -122,5 +123,5 @@ app.post("/auth/me", async (req, res) => {
 
 const port = Number(process.env.PORT || 4000);
 app.listen(port, "0.0.0.0", () =>
-  console.log(`API listening on http://0.0.0.0:${port}`)
+  console.log(`API listening on http://0.0.0.0:${port}`),
 );

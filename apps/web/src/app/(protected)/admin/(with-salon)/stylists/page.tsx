@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@auth0/nextjs-auth0/client";
 import AddStylistModal from "@/components/admin/AddStylistModal";
 import EditStylistModal from "@/components/admin/EditStylistModal";
-import { Search, Star, CalendarDays, Pencil, Clock3 } from "lucide-react";
+import { Search, Star, CalendarDays, Pencil, Clock3, User } from "lucide-react";
 import type { WeeklyShift } from "@/components/admin/WeeklyShiftEditor";
 
 type StylistStatus = "on_duty" | "on_leave";
@@ -190,9 +190,10 @@ export default function StylistsPage() {
         {loading ? (
           <div className="text-gray-400">Loading stylists...</div>
         ) : filteredStylists.length === 0 ? (
-          <div className="rounded-xl border border-gray-700 bg-[#111827] p-6 text-gray-400">
-            No stylists found.
-          </div>
+          <div className="flex flex-col items-center justify-center text-center py-16 text-gray-500">
+          <User className="h-8 w-8 mb-2" />{" "}
+          <p className="text-sm">No stylists found.</p>
+        </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredStylists.map((stylist) => (

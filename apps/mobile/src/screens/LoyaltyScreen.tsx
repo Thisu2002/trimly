@@ -192,7 +192,7 @@ export default function LoyaltyScreen({
         end={{ x: 2, y: 0.5 }}
         style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
       >
-        <ActivityIndicator color={colors.primaryLight} size="large" />
+        <ActivityIndicator color={colors.primaryLight} size="small" />
         <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13 }}>
           Loading your salons...
         </Text>

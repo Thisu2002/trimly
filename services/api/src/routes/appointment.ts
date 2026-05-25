@@ -7,7 +7,7 @@ import { guardAndAwardForAppointment } from "../lib/awardPoints";
 
 const router = Router();
 
-// ─── GET /api/appointment/list/:userSub  (customer's own appointments) ────────
+// GET /api/appointment/list/:userSub  (customer's own appointments)
 
 router.get("/list/:userSub", async (req, res) => {
   try {
@@ -63,7 +63,7 @@ router.get("/list/:userSub", async (req, res) => {
   }
 });
 
-// ─── GET /api/appointment/salon  (admin view of their salon's appointments) ───
+// GET /api/appointment/salon  (admin view of their salon's appointments)
 
 router.get("/salon", async (req, res) => {
   try {
@@ -122,7 +122,7 @@ router.get("/salon", async (req, res) => {
   }
 });
 
-// ─── PATCH /api/appointment/:id/complete  (admin marks appointment done) ──────
+// PATCH /api/appointment/:id/complete  (admin marks appointment done)
 router.patch("/:id/complete", async (req, res) => {
   try {
     const idToken = req.body.idToken as string | undefined;

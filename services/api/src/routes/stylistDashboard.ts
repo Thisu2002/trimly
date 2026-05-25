@@ -5,7 +5,7 @@ import { verifyIdToken } from "../lib/auth";
 
 const router = Router();
 
-// ─── Helper: resolve stylist from token ─────────────────────────────────────
+// Helper: resolve stylist from token
 async function getStylistFromToken(idToken: string) {
   const payload = await verifyIdToken(idToken);
   const sub = String(payload.sub);
@@ -28,8 +28,7 @@ async function getStylistFromToken(idToken: string) {
   return { user, stylist: user.stylistProfile };
 }
 
-// ─── GET /api/stylist-dashboard/me ──────────────────────────────────────────
-// Full profile: user info + bio + services + shifts
+// GET /api/stylist-dashboard/me
 router.get("/me", async (req, res) => {
   try {
     const idToken = String(req.query.idToken || "");
@@ -88,8 +87,7 @@ router.get("/me", async (req, res) => {
   }
 });
 
-// ─── PUT /api/stylist-dashboard/me ──────────────────────────────────────────
-// Update own profile (name, phone, address, bio) — no role/service changes
+// PUT /api/stylist-dashboard/me
 router.put("/me", async (req, res) => {
   try {
     const { idToken, name, phone, address, bio, yearsOfExperience } = req.body;
@@ -118,8 +116,7 @@ router.put("/me", async (req, res) => {
   }
 });
 
-// ─── GET /api/stylist-dashboard/appointments ─────────────────────────────────
-// All appointment services assigned to this stylist
+// GET /api/stylist-dashboard/appointments
 router.get("/appointments", async (req, res) => {
   try {
     const idToken = String(req.query.idToken || "");
@@ -189,8 +186,7 @@ router.get("/appointments", async (req, res) => {
   }
 });
 
-// ─── GET /api/stylist-dashboard/schedule ─────────────────────────────────────
-// Weekly shifts + today's upcoming appointment services
+// GET /api/stylist-dashboard/schedule
 router.get("/schedule", async (req, res) => {
   try {
     const idToken = String(req.query.idToken || "");
@@ -253,8 +249,7 @@ router.get("/schedule", async (req, res) => {
   }
 });
 
-// ─── GET /api/stylist-dashboard/stats ────────────────────────────────────────
-// Dashboard overview stats
+// GET /api/stylist-dashboard/stats
 router.get("/stats", async (req, res) => {
   try {
     const idToken = String(req.query.idToken || "");

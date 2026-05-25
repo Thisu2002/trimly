@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,33 +21,44 @@ const STEPS = ["Services", "Date & Time", "Stylist", "Confirm"];
 const CURRENT_STEP = 2;
 
 export default function BookingStylistScreen({ route, navigation }: Props) {
-  const { salonId, salonName, date, startTime, selectedServices } = route.params;
+  const { salonId, salonName, date, startTime, selectedServices } =
+    route.params;
   const [groups, setGroups] = useState<AvailableStylistGroup[]>([]);
-  const [selectedStylists, setSelectedStylists] = useState<Record<string, StylistItem>>({});
+  const [selectedStylists, setSelectedStylists] = useState<
+    Record<string, StylistItem>
+  >({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`${API_BASE_URL}/api/mobile/stylists/available`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          salonId,
-          date,
-          startTime,
-          selectedServices: selectedServices.map((s) => ({
-            serviceId: s.id,
-            sequence: s.sequence!,
-          })),
-        }),
-      });
-      const data = await res.json();
-      setGroups(data.items || []);
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/mobile/stylists/available`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              salonId,
+              date,
+              startTime,
+              selectedServices: selectedServices.map((s) => ({
+                serviceId: s.id,
+                sequence: s.sequence!,
+              })),
+            }),
+          },
+        );
+        const data = await res.json();
+        setGroups(data.items || []);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
   const ready = useMemo(
     () => selectedServices.every((service) => selectedStylists[service.id]),
-    [selectedStylists, selectedServices]
+    [selectedStylists, selectedServices],
   );
 
   function pickStylist(serviceId: string, stylist: StylistItem) {
@@ -64,7 +76,9 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
         <ScrollView contentContainerStyle={styles.outer}>
           <View style={styles.page}>
             <Text style={styles.title}>{salonName}</Text>
-            <Text style={styles.meta}>{date} · {startTime}</Text>
+            <Text style={styles.meta}>
+              {date} · {startTime}
+            </Text>
 
             {/* Step Progress */}
             <View style={styles.stepRow}>
@@ -105,31 +119,49 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
               })}
             </View>
 
-            {groups.map((group) => (
-              <View key={group.serviceId} style={{ marginBottom: 20 }}>
-                <Text style={styles.groupTitle}>{group.serviceName}</Text>
-                {group.stylists.length === 0 ? (
-                  <Text style={styles.emptyText}>No stylist available for this slot.</Text>
-                ) : (
-                  <View style={styles.grid}>
-                    {group.stylists.map((stylist) => {
-                      const active = selectedStylists[group.serviceId]?.id === stylist.id;
-                      return (
-                        <Pressable
-                          key={stylist.id}
-                          style={[styles.stylistCard, active && styles.stylistCardActive]}
-                          onPress={() => pickStylist(group.serviceId, stylist)}
-                        >
-                          <View style={styles.avatar} />
-                          <Text style={styles.stylistName}>{stylist.name}</Text>
-                          <Text style={styles.profileText}>View Profile</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            ))}
+            {loading ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.primaryLight}
+                style={{ marginVertical: 40 }}
+              />
+            ) : (
+              groups.map((group) => (
+                <View key={group.serviceId} style={{ marginBottom: 20 }}>
+                  <Text style={styles.groupTitle}>{group.serviceName}</Text>
+                  {group.stylists.length === 0 ? (
+                    <Text style={styles.emptyText}>
+                      No stylist available for this slot.
+                    </Text>
+                  ) : (
+                    <View style={styles.grid}>
+                      {group.stylists.map((stylist) => {
+                        const active =
+                          selectedStylists[group.serviceId]?.id === stylist.id;
+                        return (
+                          <Pressable
+                            key={stylist.id}
+                            style={[
+                              styles.stylistCard,
+                              active && styles.stylistCardActive,
+                            ]}
+                            onPress={() =>
+                              pickStylist(group.serviceId, stylist)
+                            }
+                          >
+                            <View style={styles.avatar} />
+                            <Text style={styles.stylistName}>
+                              {stylist.name}
+                            </Text>
+                            <Text style={styles.profileText}>View Profile</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              ))
+            )}
 
             <Pressable
               disabled={!ready}

@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@auth0/nextjs-auth0/client";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Package, Trash2 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
 import AddInventoryItemModal from "@/components/admin/inventory/AddInventoryItemModal";
 import EditInventoryItemModal from "@/components/admin/inventory/EditInventoryItemModal";
@@ -38,7 +38,10 @@ function getStockStatus(item: InventoryItem): StockStatus {
   return "good";
 }
 
-const STATUS_STYLES: Record<StockStatus, { label: string; dot: string; text: string; bg: string }> = {
+const STATUS_STYLES: Record<
+  StockStatus,
+  { label: string; dot: string; text: string; bg: string }
+> = {
   critical: {
     label: "Critical",
     dot: "bg-red-500",
@@ -86,7 +89,10 @@ export default function InventoryPage() {
         fetch(`${apiBase}/api/inventory/items?idToken=${token}`),
         fetch(`${apiBase}/api/inventory/categories?idToken=${token}`),
       ]);
-      const [itemsData, catsData] = await Promise.all([itemsRes.json(), catsRes.json()]);
+      const [itemsData, catsData] = await Promise.all([
+        itemsRes.json(),
+        catsRes.json(),
+      ]);
       setItems(Array.isArray(itemsData) ? itemsData : []);
       setCategories(Array.isArray(catsData) ? catsData : []);
     } catch (err) {
@@ -98,16 +104,19 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchAll();
-  });
+  }, []);
 
   async function handleConfirmDelete() {
     if (!deletingId) return;
     setDeleteLoading(true);
     try {
       const token = await getAccessToken();
-      await fetch(`${apiBase}/api/inventory/items/${deletingId}?idToken=${token}`, {
-        method: "DELETE",
-      });
+      await fetch(
+        `${apiBase}/api/inventory/items/${deletingId}?idToken=${token}`,
+        {
+          method: "DELETE",
+        },
+      );
       setDeletingId(null);
       fetchAll();
     } finally {
@@ -121,8 +130,12 @@ export default function InventoryPage() {
     const s = getStockStatus(i);
     return s === "low" || s === "critical";
   }).length;
-  const criticalCount = items.filter((i) => getStockStatus(i) === "critical").length;
-  const wellStockedCount = items.filter((i) => getStockStatus(i) === "good").length;
+  const criticalCount = items.filter(
+    (i) => getStockStatus(i) === "critical",
+  ).length;
+  const wellStockedCount = items.filter(
+    (i) => getStockStatus(i) === "good",
+  ).length;
 
   // Filter
   const filtered = useMemo(() => {
@@ -138,12 +151,15 @@ export default function InventoryPage() {
     });
   }, [items, search, filterCategory, filterStatus]);
 
-  const grouped = filtered.reduce<Record<string, InventoryItem[]>>((acc, item) => {
-    const key = item.category?.name || "Uncategorized";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {});
+  const grouped = filtered.reduce<Record<string, InventoryItem[]>>(
+    (acc, item) => {
+      const key = item.category?.name || "Uncategorized";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    },
+    {},
+  );
 
   const categoryNames = useMemo(() => {
     const names = items
@@ -182,7 +198,9 @@ export default function InventoryPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-semibold">Inventory Management</h1>
-            <p className="text-gray-400 text-sm">Track and manage salon stock levels</p>
+            <p className="text-gray-400 text-sm">
+              Track and manage salon stock levels
+            </p>
           </div>
           <div className="flex gap-2">
             <button
@@ -205,7 +223,11 @@ export default function InventoryPage() {
           <StatCard title="Total Items" value={totalItems} />
           <StatCard title="Low Stock" value={lowStockCount} accent="yellow" />
           <StatCard title="Critical" value={criticalCount} accent="red" />
-          <StatCard title="Well Stocked" value={wellStockedCount} accent="green" />
+          <StatCard
+            title="Well Stocked"
+            value={wellStockedCount}
+            accent="green"
+          />
         </div>
 
         {/* Critical alert banner */}
@@ -214,7 +236,8 @@ export default function InventoryPage() {
             <span className="text-red-400 text-lg mt-0.5">⚠</span>
             <div>
               <p className="text-red-400 font-medium text-sm mb-1">
-                {criticalItems.length} item{criticalItems.length > 1 ? "s are" : " is"} critically low
+                {criticalItems.length} item
+                {criticalItems.length > 1 ? "s are" : " is"} critically low
               </p>
               <div className="flex flex-wrap gap-2">
                 {criticalItems.map((item) => (
@@ -243,7 +266,9 @@ export default function InventoryPage() {
               key={cat}
               onClick={() => setFilterCategory(cat)}
               className={`px-4 py-2 rounded-lg text-sm ${
-                filterCategory === cat ? "bg-gray-600" : "bg-gray-800 hover:bg-gray-700"
+                filterCategory === cat
+                  ? "bg-gray-600"
+                  : "bg-gray-800 hover:bg-gray-700"
               }`}
             >
               {cat}
@@ -262,19 +287,27 @@ export default function InventoryPage() {
                   ? s === "all"
                     ? "bg-gray-600 text-white"
                     : s === "good"
-                    ? "bg-green-500/30 text-green-300 border border-green-500/40"
-                    : s === "low"
-                    ? "bg-yellow-500/30 text-yellow-300 border border-yellow-500/40"
-                    : "bg-red-500/30 text-red-300 border border-red-500/40"
+                      ? "bg-green-500/30 text-green-300 border border-green-500/40"
+                      : s === "low"
+                        ? "bg-yellow-500/30 text-yellow-300 border border-yellow-500/40"
+                        : "bg-red-500/30 text-red-300 border border-red-500/40"
                   : "bg-gray-800 text-gray-400 hover:bg-gray-700"
               }`}
             >
-              {s === "all" ? "All" : s === "good" ? "In Stock" : s === "low" ? "Low Stock" : "Critical"}
+              {s === "all"
+                ? "All"
+                : s === "good"
+                  ? "In Stock"
+                  : s === "low"
+                    ? "Low Stock"
+                    : "Critical"}
             </button>
           ))}
         </div>
 
-        {loading && <div className="text-gray-400 text-sm">Loading inventory...</div>}
+        {loading && (
+          <div className="text-gray-400 text-sm">Loading inventory...</div>
+        )}
 
         {/* Grouped Items */}
         <div className="space-y-8">
@@ -303,9 +336,9 @@ export default function InventoryPage() {
           ))}
 
           {!loading && filtered.length === 0 && (
-            <div className="text-center py-16 text-gray-500">
-              <div className="text-4xl mb-3">📦</div>
-              <p className="text-sm">No items found. Add your first inventory item.</p>
+            <div className="flex flex-col items-center justify-center text-center py-16 text-gray-500">
+              <Package className="h-8 w-8 mb-2" />{" "}
+              <p className="text-sm">No items found. Add an inventory item.</p>
             </div>
           )}
         </div>
@@ -373,10 +406,10 @@ function StatCard({
     accent === "yellow"
       ? "text-yellow-400"
       : accent === "red"
-      ? "text-red-400"
-      : accent === "green"
-      ? "text-green-400"
-      : "text-white";
+        ? "text-red-400"
+        : accent === "green"
+          ? "text-green-400"
+          : "text-white";
 
   return (
     <div className="bg-[#111827] border border-gray-700 rounded-xl p-4 text-center">
@@ -397,9 +430,16 @@ function InventoryItemCard({
 }) {
   const status = getStockStatus(item);
   const { label, dot, text, bg } = STATUS_STYLES[status];
-  const pct = Math.min(100, Math.round((item.currentStock / item.minStock) * 100));
+  const pct = Math.min(
+    100,
+    Math.round((item.currentStock / item.minStock) * 100),
+  );
   const barColor =
-    status === "critical" ? "bg-red-500" : status === "low" ? "bg-yellow-400" : "bg-green-500";
+    status === "critical"
+      ? "bg-red-500"
+      : status === "low"
+        ? "bg-yellow-400"
+        : "bg-green-500";
 
   return (
     <div className="bg-[#111827] border border-gray-700 rounded-xl p-4 space-y-3">
@@ -433,14 +473,18 @@ function InventoryItemCard({
           <span className="text-gray-400 text-xs">Current</span>
           <div className={`font-semibold ${text}`}>
             {item.currentStock}{" "}
-            <span className="text-xs font-normal text-gray-400">{item.unit}</span>
+            <span className="text-xs font-normal text-gray-400">
+              {item.unit}
+            </span>
           </div>
         </div>
         <div className="text-right">
           <span className="text-gray-400 text-xs">Min required</span>
           <div className="font-semibold text-gray-300">
             {item.minStock}{" "}
-            <span className="text-xs font-normal text-gray-400">{item.unit}</span>
+            <span className="text-xs font-normal text-gray-400">
+              {item.unit}
+            </span>
           </div>
         </div>
       </div>
@@ -448,7 +492,10 @@ function InventoryItemCard({
       {/* Progress bar */}
       <div>
         <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-          <div className={`${barColor} h-full transition-all`} style={{ width: `${pct}%` }} />
+          <div
+            className={`${barColor} h-full transition-all`}
+            style={{ width: `${pct}%` }}
+          />
         </div>
         <div className="flex justify-between mt-1">
           <div className="flex items-center gap-1">

@@ -268,14 +268,15 @@ export default function SalonProfilePage() {
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {salon.photos.map((url, i) => (
-  <div key={i} className="relative aspect-square overflow-hidden rounded-lg border border-gray-700">
-    <img
-      src={url}
-      alt={`Salon photo ${i + 1}`}
-      className="absolute inset-0 h-full w-full object-cover"
-    />
-  </div>
-))}
+                  <div key={i} className="relative aspect-square overflow-hidden rounded-lg border border-gray-700">
+                    <Image
+                      src={url}
+                      alt={`Salon photo ${i + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </>

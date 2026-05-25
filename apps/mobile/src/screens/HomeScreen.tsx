@@ -1,3 +1,4 @@
+//D:\trimly\apps\mobile\src\screens\HomeScreen.tsx
 import {
   Alert,
   Pressable,
@@ -9,8 +10,12 @@ import {
   Dimensions,
   FlatList,
   ActivityIndicator,
+  ImageSourcePropType,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { ImageBackground } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -27,7 +32,30 @@ import { API_BASE_URL } from "../config/api";
 
 const { width } = Dimensions.get("window");
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const LOCAL_STYLE_IMAGES: Record<string, any> = {
+  "Layered Bob": require("../../assets/pic4.jpg"),
+  "Textured Lob": require("../../assets/pic4.jpg"),
+  "Crew Cut": require("../../assets/pic6.jpg"),
+  "Pixie Cut": require("../../assets/pic6.jpg"),
+  Balayage: require("../../assets/pic4.jpg"),
+  Highlights: require("../../assets/pic2.jpg"),
+  "Keratin Treatment": require("../../assets/pic6.jpg"),
+  "Hair Spa": require("../../assets/pic4.jpg"),
+  "Blow Dry": require("../../assets/pic5.jpg"),
+  "Deep Conditioning": require("../../assets/pic7.jpg"),
+};
+
+const CATEGORY_FALLBACKS: Record<string, string> = {
+  haircut:
+    "https://images.unsplash.com/photo-1621605815971-fbc98d665033?w=400&q=80",
+  color: "https://images.unsplash.com/photo-1560869713-7d0a29430803?w=400&q=80",
+  treatment:
+    "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=400&q=80",
+  styling:
+    "https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?w=400&q=80",
+  default:
+    "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80",
+};
 
 type Props = {
   user: AuthUser | null;
@@ -47,7 +75,7 @@ type TrendingStyle = {
   id: string;
   name: string;
   category: string;
-  coverImageUrl: string;
+  styleKey: string;
   tag: string;
   serviceCount: number;
 };
@@ -56,7 +84,7 @@ type TrendingStyle = {
 
 function tagColor(tag: string): string {
   if (tag === "Most Popular") return colors.star;
-  if (tag === "Trending")     return colors.accent;
+  if (tag === "Trending") return colors.accent;
   return colors.primaryLight;
 }
 
@@ -67,10 +95,19 @@ const CARD_H = CARD_W * 1.35;
 
 function TrendingCard({ item }: { item: TrendingStyle }) {
   const tc = tagColor(item.tag);
+
+  const imageSource: ImageSourcePropType = LOCAL_STYLE_IMAGES[
+    item.styleKey
+  ] ?? {
+    uri:
+      CATEGORY_FALLBACKS[item.category?.toLowerCase()] ??
+      CATEGORY_FALLBACKS.default,
+  };
+
   return (
     <View style={trend.card}>
       <ImageBackground
-        source={{ uri: item.coverImageUrl }}
+        source={imageSource}
         style={trend.image}
         imageStyle={trend.imageStyle}
         resizeMode="cover"
@@ -82,14 +119,16 @@ function TrendingCard({ item }: { item: TrendingStyle }) {
           <View style={[trend.tagBadge, { borderColor: tc }]}>
             <Text style={[trend.tagText, { color: tc }]}>{item.tag}</Text>
           </View>
-          <Text style={trend.name} numberOfLines={2}>{item.name}</Text>
+          <Text style={trend.name} numberOfLines={2}>
+            {item.name}
+          </Text>
         </LinearGradient>
       </ImageBackground>
     </View>
   );
 }
 
-// ─── Trending skeleton (shown while loading) ──────────────────────────────────
+// Trending skeleton (shown while loading)
 
 function TrendingSkeleton() {
   return (
@@ -171,7 +210,11 @@ export default function HomeScreen({
                   colors={["rgba(42,79,122,0.6)", "rgba(0,59,143,0.4)"]}
                   style={styles.rewardsBtnInner}
                 >
-                  <Ionicons name="gift-outline" size={18} color={colors.primaryLight} />
+                  <Ionicons
+                    name="gift-outline"
+                    size={18}
+                    color={colors.primaryLight}
+                  />
                   <Text style={styles.rewardsBtnLabel}>Rewards</Text>
                 </LinearGradient>
               </Pressable>
@@ -231,8 +274,17 @@ export default function HomeScreen({
           <Text style={styles.sectionTitle}>Quick Access</Text>
           <View style={styles.quickRow}>
             <Pressable style={styles.quickCard} onPress={onBrowseAppointments}>
-              <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.12)" }]}>
-                <Ionicons name="calendar-outline" size={22} color={colors.primaryLight} />
+              <View
+                style={[
+                  styles.quickIcon,
+                  { backgroundColor: "rgba(171,213,255,0.12)" },
+                ]}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={22}
+                  color={colors.primaryLight}
+                />
               </View>
               <Text style={styles.quickLabel}>My{"\n"}Bookings</Text>
             </Pressable>
@@ -241,8 +293,17 @@ export default function HomeScreen({
               style={styles.quickCard}
               onPress={() => navigation.navigate("SalonList")}
             >
-              <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.12)" }]}>
-                <Ionicons name="cut-outline" size={22} color={colors.primaryLight} />
+              <View
+                style={[
+                  styles.quickIcon,
+                  { backgroundColor: "rgba(171,213,255,0.12)" },
+                ]}
+              >
+                <Ionicons
+                  name="cut-outline"
+                  size={22}
+                  color={colors.primaryLight}
+                />
               </View>
               <Text style={styles.quickLabel}>Salons{"\n"}Nearby</Text>
             </Pressable>
@@ -251,8 +312,17 @@ export default function HomeScreen({
               style={styles.quickCard}
               onPress={() => navigation.navigate("StyleRecommendation")}
             >
-              <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.12)" }]}>
-                <Ionicons name="sparkles-outline" size={22} color={colors.primaryLight} />
+              <View
+                style={[
+                  styles.quickIcon,
+                  { backgroundColor: "rgba(171,213,255,0.12)" },
+                ]}
+              >
+                <Ionicons
+                  name="sparkles-outline"
+                  size={22}
+                  color={colors.primaryLight}
+                />
               </View>
               <Text style={styles.quickLabel}>Style{"\n"}Tips</Text>
             </Pressable>
@@ -261,8 +331,17 @@ export default function HomeScreen({
               style={styles.quickCard}
               onPress={() => navigation.navigate("Mirror", {})}
             >
-              <View style={[styles.quickIcon, { backgroundColor: "rgba(171,213,255,0.08)" }]}>
-                <Ionicons name="camera-outline" size={22} color={colors.primaryLight} />
+              <View
+                style={[
+                  styles.quickIcon,
+                  { backgroundColor: "rgba(171,213,255,0.08)" },
+                ]}
+              >
+                <Ionicons
+                  name="camera-outline"
+                  size={22}
+                  color={colors.primaryLight}
+                />
               </View>
               <Text style={styles.quickLabel}>Virtual{"\n"}Mirror</Text>
             </Pressable>
@@ -274,14 +353,20 @@ export default function HomeScreen({
               <View style={styles.sectionHeader}>
                 <View>
                   <Text style={styles.sectionTitle}>Trending Styles</Text>
-                  <Text style={styles.sectionSub}>What's popular this season</Text>
+                  <Text style={styles.sectionSub}>
+                    What's popular this season
+                  </Text>
                 </View>
                 <Pressable
                   style={styles.seeAllBtn}
                   onPress={() => navigation.navigate("StyleRecommendation")}
                 >
                   <Text style={styles.seeAllText}>See all</Text>
-                  <Ionicons name="chevron-forward" size={13} color={colors.primaryLight} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={13}
+                    color={colors.primaryLight}
+                  />
                 </Pressable>
               </View>
 
@@ -315,7 +400,9 @@ export default function HomeScreen({
           )}
 
           {/* ── Section: AI Features ── */}
-          <Text style={[styles.sectionTitle, { marginTop: 28 }]}>AI Features</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 28 }]}>
+            AI Features
+          </Text>
 
           {/* Virtual Mirror Card */}
           <Pressable
@@ -329,8 +416,17 @@ export default function HomeScreen({
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.featureCardLeft}>
-                <View style={[styles.featureIconCircle, { backgroundColor: "rgba(171,213,255,0.1)" }]}>
-                  <Ionicons name="camera-outline" size={30} color={colors.primaryLight} />
+                <View
+                  style={[
+                    styles.featureIconCircle,
+                    { backgroundColor: "rgba(171,213,255,0.1)" },
+                  ]}
+                >
+                  <Ionicons
+                    name="camera-outline"
+                    size={30}
+                    color={colors.primaryLight}
+                  />
                 </View>
                 <View style={styles.featureCardText}>
                   <Text style={styles.featureCardTitle}>Virtual Mirror</Text>
@@ -340,7 +436,11 @@ export default function HomeScreen({
                 </View>
               </View>
               <View style={styles.featureArrowWrap}>
-                <Ionicons name="chevron-forward" size={18} color={colors.primaryLight} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.primaryLight}
+                />
               </View>
             </LinearGradient>
           </Pressable>
@@ -357,27 +457,56 @@ export default function HomeScreen({
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.featureCardLeft}>
-                <View style={[styles.featureIconCircle, { backgroundColor: "rgba(255,255,255,0.12)" }]}>
-                  <Ionicons name="sparkles-outline" size={30} color={colors.primaryLight} />
+                <View
+                  style={[
+                    styles.featureIconCircle,
+                    { backgroundColor: "rgba(255,255,255,0.12)" },
+                  ]}
+                >
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={30}
+                    color={colors.primaryLight}
+                  />
                 </View>
                 <View style={styles.featureCardText}>
-                  <Text style={[styles.featureCardTitle, { color: colors.white }]}>
+                  <Text
+                    style={[styles.featureCardTitle, { color: colors.white }]}
+                  >
                     Style Recommendations
                   </Text>
-                  <Text style={[styles.featureCardSub, { color: "rgba(255,255,255,0.7)" }]}>
+                  <Text
+                    style={[
+                      styles.featureCardSub,
+                      { color: "rgba(255,255,255,0.7)" },
+                    ]}
+                  >
                     AI picks based on your{"\n"}saved hair profile
                   </Text>
                 </View>
               </View>
-              <View style={[styles.featureArrowWrap, { backgroundColor: "rgba(255,255,255,0.1)" }]}>
-                <Ionicons name="chevron-forward" size={18} color={colors.white} />
+              <View
+                style={[
+                  styles.featureArrowWrap,
+                  { backgroundColor: "rgba(255,255,255,0.1)" },
+                ]}
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.white}
+                />
               </View>
             </LinearGradient>
           </Pressable>
 
           {/* ── Profile chip at bottom ── */}
           <View style={styles.profileChip}>
-            <Ionicons name="person-circle-outline" size={18} color={colors.textMuted} />
+            <Ionicons
+              name="person-circle-outline"
+              size={18}
+              color={colors.textMuted}
+            />
             <Text style={styles.profileChipText} numberOfLines={1}>
               {user?.email ?? "—"}
             </Text>
@@ -468,7 +597,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  rewardsBtnLabel: { fontSize: 12, fontWeight: "600", color: colors.primaryLight },
+  rewardsBtnLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primaryLight,
+  },
 
   greetingRow: { flexDirection: "row", marginBottom: 15 },
   greeting: {
@@ -613,8 +746,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     overflow: "hidden",
   },
-  featureCardGradient: { padding: 18, flexDirection: "row", alignItems: "center" },
-  featureCardLeft: { flexDirection: "row", alignItems: "center", flex: 1, gap: 14 },
+  featureCardGradient: {
+    padding: 18,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  featureCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 14,
+  },
   featureIconCircle: {
     width: 52,
     height: 52,
@@ -657,5 +799,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
   },
-  logoutChipText: { fontSize: 12, fontWeight: "600", color: colors.primaryLight },
+  logoutChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.primaryLight,
+  },
 });

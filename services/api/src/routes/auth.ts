@@ -1,4 +1,4 @@
-//D:\trimly\services\api\src\routes\auth.ts
+// D:\trimly\services\api\src\routes\auth.ts
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { verifyIdToken } from "../lib/auth";
@@ -19,29 +19,23 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "email missing in token" });
     }
 
-    // const userName =
-    //   typeof payload.name === "string" ? payload.name : email.split("@")[0];
-
-    const userName = email.split("@")[0];
-
     const rawRoles = payload["https://trimly.app/roles"];
     const authRoles = Array.isArray(rawRoles) ? rawRoles.map(String) : [];
+    const role: "admin" | "customer" = authRoles.includes("admin") ? "admin" : "customer";
 
-    const role: "admin" | "customer" = authRoles.includes("admin")
-      ? "admin"
-      : "customer";
+    const existing = await prisma.user.findUnique({ where: { auth0Sub: sub } });
+    const isNewUser = !existing;
 
     const user = await prisma.user.upsert({
       where: { auth0Sub: sub },
       update: {
         email,
-        name: userName,
         role,
       },
       create: {
         auth0Sub: sub,
         email,
-        name: userName,
+        name: email.split("@")[0],
         role,
       },
       include: {
@@ -55,9 +49,7 @@ router.post("/", async (req, res) => {
       await prisma.customer.upsert({
         where: { userId: user.id },
         update: {},
-        create: {
-          userId: user.id,
-        },
+        create: { userId: user.id },
       });
     }
 
@@ -70,7 +62,7 @@ router.post("/", async (req, res) => {
       },
     });
 
-    return res.json({ user: fullUser });
+    return res.json({ user: fullUser, isNewUser });
   } catch (e) {
     console.error("Auth error:", e);
     return res.status(401).json({ error: "Invalid token" });

@@ -306,7 +306,7 @@ async function processLandmarks() {
       >
         <SafeAreaView style={styles.safe}>
           <View style={styles.centred}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="large" color={colors.primaryLight} />
             <Text style={styles.processingText}>
               Analysing your face shape…
             </Text>

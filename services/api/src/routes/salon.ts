@@ -29,7 +29,7 @@ const upload = multer({
   },
 });
 
-// ── POST /api/salon  (create) ────────────────────────────────────────────────
+// POST /api/salon  (create)
 router.post("/", upload.array("photos", 5), async (req, res) => {
   try {
     const { idToken, name, phone, address } = req.body;
@@ -62,7 +62,7 @@ router.post("/", upload.array("photos", 5), async (req, res) => {
   }
 });
 
-// ── GET /api/salon/me  (fetch the admin's own salon) ────────────────────────
+// GET /api/salon/me  (fetch the admin's own salon)
 router.get("/me", async (req, res) => {
   try {
     const idToken = req.query.idToken as string;
@@ -88,7 +88,7 @@ router.get("/me", async (req, res) => {
   }
 });
 
-// ── PATCH /api/salon/me  (update name / phone / address / photos) ────────────
+// PATCH /api/salon/me  (update name / phone / address / photos)
 router.patch("/me", upload.array("newPhotos", 5), async (req, res) => {
   try {
     const { idToken, name, phone, address, keepPhotos } = req.body;
@@ -106,7 +106,6 @@ router.patch("/me", upload.array("newPhotos", 5), async (req, res) => {
     if (user.role !== "admin") return res.status(403).json({ error: "Not an admin" });
     if (!user.adminSalon) return res.status(404).json({ error: "No salon found" });
 
-    // keepPhotos is a JSON array of existing URLs the admin wants to keep
     let kept: string[] = [];
     try {
       kept = keepPhotos ? JSON.parse(keepPhotos) : [];
@@ -114,7 +113,6 @@ router.patch("/me", upload.array("newPhotos", 5), async (req, res) => {
       kept = [];
     }
 
-    // Delete files on disk that were removed
     const existing = user.adminSalon.photos as string[];
     const removed = existing.filter((url) => !kept.includes(url));
     for (const url of removed) {
@@ -125,7 +123,6 @@ router.patch("/me", upload.array("newPhotos", 5), async (req, res) => {
       }
     }
 
-    // Append newly uploaded files
     const apiBase = process.env.API_BASE_URL || "http://localhost:4000";
     const newFiles = (req.files as Express.Multer.File[]) ?? [];
     const newUrls = newFiles.map((f) => `${apiBase}/uploads/salons/${f.filename}`);

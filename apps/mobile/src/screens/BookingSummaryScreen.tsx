@@ -1,4 +1,13 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -14,10 +23,21 @@ type Props = NativeStackScreenProps<RootStackParamList, "BookingSummary"> & {
 const STEPS = ["Services", "Date & Time", "Stylist", "Confirm"];
 const CURRENT_STEP = 3;
 
-export default function BookingSummaryScreen({ route, navigation, idToken }: Props) {
-  const { salonId, salonName, date, startTime, selectedServices, selectedStylists } =
-    route.params;
+export default function BookingSummaryScreen({
+  route,
+  navigation,
+  idToken,
+}: Props) {
+  const {
+    salonId,
+    salonName,
+    date,
+    startTime,
+    selectedServices,
+    selectedStylists,
+  } = route.params;
 
+  const [loading, setLoading] = React.useState(false);
   const total = selectedServices.reduce((sum, s) => sum + s.priceLkr, 0);
 
   function pollPaymentStatus(pendingPaymentId: string): Promise<string> {
@@ -28,7 +48,7 @@ export default function BookingSummaryScreen({ route, navigation, idToken }: Pro
         attempts++;
         try {
           const res = await fetch(
-            `${API_BASE_URL}/api/mobile/payment-status/${pendingPaymentId}`
+            `${API_BASE_URL}/api/mobile/payment-status/${pendingPaymentId}`,
           );
           const data = await res.json();
           if (data.status === "confirmed") {
@@ -39,7 +59,11 @@ export default function BookingSummaryScreen({ route, navigation, idToken }: Pro
             reject(new Error("Payment was not completed."));
           } else if (attempts >= MAX_ATTEMPTS) {
             clearInterval(interval);
-            reject(new Error("Payment confirmation timed out. Please contact support if you were charged."));
+            reject(
+              new Error(
+                "Payment confirmation timed out. Please contact support if you were charged.",
+              ),
+            );
           }
         } catch (e) {
           if (attempts >= MAX_ATTEMPTS) {
@@ -52,6 +76,8 @@ export default function BookingSummaryScreen({ route, navigation, idToken }: Pro
   }
 
   async function handleConfirm() {
+    if (loading) return;
+    setLoading(true);
     try {
       const serviceAssignments = selectedServices.map((service) => ({
         serviceId: service.id,
@@ -62,7 +88,13 @@ export default function BookingSummaryScreen({ route, navigation, idToken }: Pro
       const res = await fetch(`${API_BASE_URL}/api/mobile/initiate-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken, salonId, date, startTime, serviceAssignments }),
+        body: JSON.stringify({
+          idToken,
+          salonId,
+          date,
+          startTime,
+          serviceAssignments,
+        }),
       });
 
       const data = await res.json();
@@ -77,14 +109,19 @@ export default function BookingSummaryScreen({ route, navigation, idToken }: Pro
             const appointmentId = await pollPaymentStatus(pendingPaymentId);
             navigation.navigate("PaymentSuccess", { appointmentId });
           } catch (pollError: any) {
-            Alert.alert("Checking Payment", pollError?.message || "We couldn't confirm your payment yet.");
+            Alert.alert(
+              "Checking Payment",
+              pollError?.message || "We couldn't confirm your payment yet.",
+            );
           }
         },
         (error: string) => Alert.alert("Payment Error", error),
-        () => console.log("Payment dismissed by user")
+        () => console.log("Payment dismissed by user"),
       );
     } catch (error: any) {
       Alert.alert("Error", error?.message || "Something went wrong");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -99,8 +136,9 @@ export default function BookingSummaryScreen({ route, navigation, idToken }: Pro
         <ScrollView contentContainerStyle={styles.outer}>
           <View style={styles.page}>
             <Text style={styles.title}>{salonName}</Text>
-            <Text style={styles.meta}>{date} · {startTime}</Text>
-
+            <Text style={styles.meta}>
+              {date} · {startTime}
+            </Text>
             {/* Step Progress */}
             <View style={styles.stepRow}>
               {STEPS.map((step, i) => {
@@ -139,7 +177,6 @@ export default function BookingSummaryScreen({ route, navigation, idToken }: Pro
                 );
               })}
             </View>
-
             <Text style={styles.sectionTitle}>Summary</Text>
             {selectedServices.map((service) => (
               <View key={service.id} style={styles.summaryRow}>
@@ -152,15 +189,24 @@ export default function BookingSummaryScreen({ route, navigation, idToken }: Pro
                 <Text style={styles.price}>LKR {service.priceLkr}</Text>
               </View>
             ))}
-
             <View style={styles.divider} />
             <View style={styles.totalRow}>
               <Text style={styles.totalText}>Total</Text>
               <Text style={styles.totalText}>LKR {total}</Text>
             </View>
-
-            <Pressable style={styles.continueButton} onPress={handleConfirm}>
-              <Text style={styles.continueButtonText}>Confirm & Pay →</Text>
+            <Pressable
+              style={[
+                styles.continueButton,
+                loading && styles.continueButtonDisabled,
+              ]}
+              onPress={handleConfirm}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <Text style={styles.continueButtonText}>Confirm & Pay →</Text>
+              )}
             </Pressable>
           </View>
         </ScrollView>
@@ -288,6 +334,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
+  continueButtonDisabled: { opacity: 0.6 },
   continueButtonText: {
     color: colors.text,
     fontWeight: "700",

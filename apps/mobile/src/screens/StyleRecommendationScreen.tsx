@@ -133,7 +133,7 @@ export default function StyleRecommendationScreen({ navigation: navProp, userSub
       >
         <SafeAreaView style={styles.safe}>
           <View style={styles.centred}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="small" color={colors.primaryLight} />
             <Text style={styles.loadingText}>Finding your best styles…</Text>
           </View>
         </SafeAreaView>

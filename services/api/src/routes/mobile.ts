@@ -46,6 +46,7 @@ router.get("/salons", async (req, res) => {
       reviewCount: 28,
       serviceCount: salon.services.length,
       stylistCount: salon.stylists.length,
+      photos: salon.photos || [],
     }));
 
     return res.json({ salons: result });
@@ -94,6 +95,7 @@ router.get("/salons/:salonId", async (req, res) => {
         rating: 4.0,
         reviewCount: 28,
         photoSlots: 3,
+        photos: salon.photos || [],
         businessHours: salon.businessHours,
         categories: salon.categories,
         stylists: salon.stylists.map((stylist) => ({
@@ -422,8 +424,7 @@ router.post("/initiate-payment", async (req, res) => {
     ).toUpperCase();
 
     const notifyUrl =
-      process.env.PAYHERE_NOTIFY_URL ||
-      "https://MY_NGROK_URL/api/payment/notify";
+      process.env.PAYHERE_NOTIFY_URL;
 
     const paymentData = {
       sandbox: true,

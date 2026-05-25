@@ -7,6 +7,7 @@ export type SalonListItem = {
   reviewCount: number;
   serviceCount: number;
   stylistCount: number;
+  photos: string[];
 };
 
 export type ServiceItem = {
@@ -44,6 +45,7 @@ export type SalonDetail = {
   photoSlots: number;
   categories: CategoryItem[];
   stylists: StylistItem[];
+  photos: string[];
 };
 
 export type SlotItem = {

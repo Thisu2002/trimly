@@ -66,7 +66,6 @@ export default function VirtualTryOnScreen({
   const [showAll, setShowAll] = useState(false);
 
   const cache = useRef<Record<string, GeneratedImages>>({});
-  // ── TEST MOCK — remove before production ──
   // Preloads cache with public images so download can be tested without Claid credits
   // useEffect(() => {
   //   const MOCK_STYLE_ID = HAIR_STYLES_3D.filter((s) => s.gender === "female")[0].id;
@@ -345,7 +344,7 @@ export default function VirtualTryOnScreen({
 
               {generating && (
                 <View style={styles.generatingOverlay}>
-                  <ActivityIndicator size="large" color={colors.primary} />
+                  <ActivityIndicator size="small" color={colors.primaryLight} />
                   <Text style={styles.generatingText}>
                     Generating {activeView} view…
                   </Text>

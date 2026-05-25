@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+// D:\trimly\apps\mobile\src\screens\SalonDetailsScreen.tsx
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,14 +18,21 @@ import { RootStackParamList } from "../navigation/RootNavigator";
 import { API_BASE_URL } from "../config/api";
 import { SalonDetail } from "../types/salon";
 import { colors } from "../theme/colors";
+import { Ionicons } from "@expo/vector-icons";
+import LoadingOverlay from "../components/LoadingOverlay";
 
 type Props = NativeStackScreenProps<RootStackParamList, "SalonDetail">;
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+// page has margin 12 + borderRadius padding 18 on each side
+const PHOTO_WIDTH = SCREEN_WIDTH - 24 - 36;
 
 export default function SalonDetailScreen({ route, navigation }: Props) {
   const { salonId } = route.params;
   const [salon, setSalon] = useState<SalonDetail | null>(null);
   const [tab, setTab] = useState<"services" | "about" | "team">("services");
   const [loading, setLoading] = useState(true);
+  const [activePhoto, setActivePhoto] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -38,12 +49,12 @@ export default function SalonDetailScreen({ route, navigation }: Props) {
   }, [salonId]);
 
   if (loading) {
-    return <ActivityIndicator style={{ flex: 1 }} />;
+    return <LoadingOverlay />;
   }
 
-  if (!salon) {
-    return null;
-  }
+  if (!salon) return null;
+
+  const photos: string[] = salon.photos ?? [];
 
   return (
     <LinearGradient
@@ -60,11 +71,49 @@ export default function SalonDetailScreen({ route, navigation }: Props) {
             <Text style={styles.openText}>Open till 18:00</Text>
             <Text style={styles.rating}>⭐⭐⭐⭐☆</Text>
 
-            <View style={styles.photoStrip}>
-              {Array.from({ length: 3 }).map((_, i) => (
-                <View key={i} style={styles.photo} />
-              ))}
-            </View>
+            {/* ── Photo carousel ── */}
+            {photos.length > 0 ? (
+              <View style={styles.carouselWrap}>
+                <FlatList
+                  data={photos}
+                  keyExtractor={(_, i) => String(i)}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  snapToInterval={PHOTO_WIDTH + 10}
+                  decelerationRate="fast"
+                  onMomentumScrollEnd={(e) => {
+                    const index = Math.round(
+                      e.nativeEvent.contentOffset.x / (PHOTO_WIDTH + 10)
+                    );
+                    setActivePhoto(index);
+                  }}
+                  contentContainerStyle={{ gap: 10 }}
+                  renderItem={({ item }) => (
+                    <Image
+                      source={{ uri: item }}
+                      style={[styles.carouselPhoto, { width: PHOTO_WIDTH }]}
+                      resizeMode="cover"
+                    />
+                  )}
+                />
+                {/* Dot indicators */}
+                {photos.length > 1 && (
+                  <View style={styles.dots}>
+                    {photos.map((_, i) => (
+                      <View
+                        key={i}
+                        style={[styles.dot, i === activePhoto && styles.dotActive]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.photoPlaceholder}>
+                <Ionicons name="cut-outline" size={32} color={colors.textMuted} />
+              </View>
+            )}
 
             <Pressable
               style={styles.bookButton}
@@ -76,15 +125,13 @@ export default function SalonDetailScreen({ route, navigation }: Props) {
             </Pressable>
 
             <View style={styles.tabRow}>
-              <Pressable onPress={() => setTab("services")}>
-                <Text style={[styles.tab, tab === "services" && styles.tabActive]}>Services</Text>
-              </Pressable>
-              <Pressable onPress={() => setTab("about")}>
-                <Text style={[styles.tab, tab === "about" && styles.tabActive]}>About</Text>
-              </Pressable>
-              <Pressable onPress={() => setTab("team")}>
-                <Text style={[styles.tab, tab === "team" && styles.tabActive]}>Team</Text>
-              </Pressable>
+              {(["services", "about", "team"] as const).map((t) => (
+                <Pressable key={t} onPress={() => setTab(t)}>
+                  <Text style={[styles.tab, tab === t && styles.tabActive]}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
 
             {tab === "services" &&
@@ -158,15 +205,38 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: colors.star,
   },
-  photoStrip: {
-    gap: 10,
+  carouselWrap: {
     marginTop: 16,
     marginBottom: 18,
   },
-  photo: {
-    height: 90,
+  carouselPhoto: {
+    height: 200,
+    borderRadius: 16,
+  },
+  dots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 10,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.textMuted,
+  },
+  dotActive: {
+    backgroundColor: colors.text,
+    width: 18,
+  },
+  photoPlaceholder: {
+    height: 160,
     backgroundColor: colors.card,
     borderRadius: 16,
+    marginTop: 16,
+    marginBottom: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   bookButton: {
     alignSelf: "center",

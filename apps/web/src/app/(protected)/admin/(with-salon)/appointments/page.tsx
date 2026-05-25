@@ -31,9 +31,9 @@ export default function AppointmentsPage() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<
-    "All" | AppointmentStatus
-  >("All");
+  const [filterStatus, setFilterStatus] = useState<"All" | AppointmentStatus>(
+    "All",
+  );
 
   async function fetchAppointments() {
     try {
@@ -42,7 +42,7 @@ export default function AppointmentsPage() {
 
       const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
       const res = await fetch(
-        `${apiBase}/api/appointment/salon?idToken=${token}`
+        `${apiBase}/api/appointment/salon?idToken=${token}`,
       );
       const data = await res.json();
 
@@ -60,12 +60,13 @@ export default function AppointmentsPage() {
   }, []);
 
   const totalAppointments = appointments.length;
-  const totalRevenue = appointments.reduce(
-    (sum, a) => sum + a.totalLkr,
-    0
-  );
-  const pendingCount = appointments.filter((a) => a.status === "pending").length;
-  const completedCount = appointments.filter((a) => a.status === "completed").length;
+  const totalRevenue = appointments.reduce((sum, a) => sum + a.totalLkr, 0);
+  const pendingCount = appointments.filter(
+    (a) => a.status === "pending",
+  ).length;
+  const completedCount = appointments.filter(
+    (a) => a.status === "completed",
+  ).length;
 
   const filteredAppointments = useMemo(() => {
     return appointments.filter((a) => {
@@ -75,8 +76,7 @@ export default function AppointmentsPage() {
         a.customerEmail.toLowerCase().includes(q) ||
         a.services.some((s) => s.name.toLowerCase().includes(q));
 
-      const matchesStatus =
-        filterStatus === "All" || a.status === filterStatus;
+      const matchesStatus = filterStatus === "All" || a.status === filterStatus;
 
       return matchesSearch && matchesStatus;
     });
@@ -88,30 +88,27 @@ export default function AppointmentsPage() {
       const token = await getAccessToken();
       const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
-    const res = await fetch(`${apiBase}/api/appointment/${id}/complete`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken: token }),
-    });
+      const res = await fetch(`${apiBase}/api/appointment/${id}/complete`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
 
-    // Update UI immediately (no full reload needed)
-    setAppointments((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, status: "completed" } : a
-      )
-    );
-    toast.success("Appointment marked as completed!");
-
-  } catch (err) {
-    toast.error("Failed to mark appointment as completed.");
-    console.error(err);
-  } finally {
-    setLoadingId(null);
+      // Update UI immediately (no full reload needed)
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: "completed" } : a)),
+      );
+      toast.success("Appointment marked as completed!");
+    } catch (err) {
+      toast.error("Failed to mark appointment as completed.");
+      console.error(err);
+    } finally {
+      setLoadingId(null);
+    }
   }
-}
 
   return (
     <div className="space-y-6">
@@ -126,7 +123,10 @@ export default function AppointmentsPage() {
         <StatCard title="Total Appointments" value={totalAppointments} />
         <StatCard title="Pending" value={pendingCount} />
         <StatCard title="Completed" value={completedCount} />
-        <StatCard title="Revenue" value={`LKR ${totalRevenue.toLocaleString()}`} />
+        <StatCard
+          title="Revenue"
+          value={`LKR ${totalRevenue.toLocaleString()}`}
+        />
       </div>
 
       <div className="rounded-xl border border-gray-700 bg-[#111827] p-4">
@@ -146,11 +146,31 @@ export default function AppointmentsPage() {
           </div>
 
           <div className="flex gap-2">
-            <FilterButton active={filterStatus === "All"} onClick={() => setFilterStatus("All")} label="All" />
-            <FilterButton active={filterStatus === "pending"} onClick={() => setFilterStatus("pending")} label="Pending" />
-            <FilterButton active={filterStatus === "confirmed"} onClick={() => setFilterStatus("confirmed")} label="Confirmed" />
-            <FilterButton active={filterStatus === "completed"} onClick={() => setFilterStatus("completed")} label="Completed" />
-            <FilterButton active={filterStatus === "cancelled"} onClick={() => setFilterStatus("cancelled")} label="Cancelled" />
+            <FilterButton
+              active={filterStatus === "All"}
+              onClick={() => setFilterStatus("All")}
+              label="All"
+            />
+            <FilterButton
+              active={filterStatus === "pending"}
+              onClick={() => setFilterStatus("pending")}
+              label="Pending"
+            />
+            <FilterButton
+              active={filterStatus === "confirmed"}
+              onClick={() => setFilterStatus("confirmed")}
+              label="Confirmed"
+            />
+            <FilterButton
+              active={filterStatus === "completed"}
+              onClick={() => setFilterStatus("completed")}
+              label="Completed"
+            />
+            <FilterButton
+              active={filterStatus === "cancelled"}
+              onClick={() => setFilterStatus("cancelled")}
+              label="Cancelled"
+            />
           </div>
         </div>
       </div>
@@ -158,19 +178,20 @@ export default function AppointmentsPage() {
       {loading ? (
         <div className="text-gray-400">Loading appointments...</div>
       ) : filteredAppointments.length === 0 ? (
-        <div className="rounded-xl border border-gray-700 bg-[#111827] p-6 text-gray-400">
-          No appointments found.
+        <div className="flex flex-col items-center justify-center text-center py-16 text-gray-500">
+          <CalendarDays className="h-8 w-8 mb-2" />{" "}
+          <p className="text-sm">No appointments found.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredAppointments.map((appt) => (
-  <AppointmentCard
-    key={appt.id}
-    appt={appt}
-    onComplete={handleComplete}
-    loadingId={loadingId}
-  />
-))}
+            <AppointmentCard
+              key={appt.id}
+              appt={appt}
+              onComplete={handleComplete}
+              loadingId={loadingId}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -207,7 +228,15 @@ function FilterButton({
   );
 }
 
-function AppointmentCard({ appt, onComplete, loadingId }: { appt: Appointment; onComplete: (id: string) => void; loadingId: string | null; }) {
+function AppointmentCard({
+  appt,
+  onComplete,
+  loadingId,
+}: {
+  appt: Appointment;
+  onComplete: (id: string) => void;
+  loadingId: string | null;
+}) {
   return (
     <div className="rounded-xl border border-gray-700 bg-[#111827] p-5">
       <div className="flex items-center justify-between">
@@ -234,7 +263,9 @@ function AppointmentCard({ appt, onComplete, loadingId }: { appt: Appointment; o
         <div className="space-y-1 text-sm">
           {appt.services.map((s, i) => (
             <div key={i} className="flex justify-between">
-              <span>{s.name} • {s.stylist}</span>
+              <span>
+                {s.name} • {s.stylist}
+              </span>
               <span>LKR {s.priceLkr}</span>
             </div>
           ))}
@@ -263,7 +294,9 @@ function StatusBadge({ status }: { status: AppointmentStatus }) {
   };
 
   return (
-    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[status]}`}>
+    <span
+      className={`rounded-full px-2.5 py-1 text-xs font-medium ${styles[status]}`}
+    >
       {status}
     </span>
   );

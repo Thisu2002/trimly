@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,7 +24,20 @@ function next7Days() {
   const result: { iso: string; label: string; day: string }[] = [];
   const d = new Date();
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
 
   for (let i = 0; i < 7; i++) {
     const x = new Date(d);
@@ -44,18 +58,23 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
   const [selectedDate, setSelectedDate] = useState(dates[0].iso);
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
   async function fetchSlots(date: string) {
-    const res = await fetch(`${API_BASE_URL}/api/mobile/slots`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ salonId, date }),
-    });
-    const data = await res.json();
-    setSlots(data.slots || []);
-    setSelectedSlot(null);
+    setSlotsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/mobile/slots`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ salonId, date }),
+      });
+      const data = await res.json();
+      setSlots(data.slots || []);
+      setSelectedSlot(null);
+    } finally {
+      setSlotsLoading(false);
+    }
   }
-
   useEffect(() => {
     fetchSlots(selectedDate);
   }, [selectedDate]);
@@ -70,7 +89,6 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.outer}>
           <View style={styles.page}>
-
             {/* Header */}
             <Text style={styles.title}>{salonName}</Text>
             <Text style={styles.progressHint}>Choose date and time</Text>
@@ -87,7 +105,9 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
                       <View
                         style={[
                           styles.stepLine,
-                          isCompleted || isActive ? styles.stepLineActive : null,
+                          isCompleted || isActive
+                            ? styles.stepLineActive
+                            : null,
                         ]}
                       />
                     )}
@@ -182,7 +202,8 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
                     <Text
                       style={[
                         styles.slotText,
-                        selectedSlot === slot.startTime && styles.slotTextSelected,
+                        selectedSlot === slot.startTime &&
+                          styles.slotTextSelected,
                       ]}
                     >
                       {slot.startTime}
@@ -194,8 +215,11 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
 
             {/* Continue — always visible at bottom */}
             <Pressable
-              disabled={!selectedSlot}
-              style={[styles.continueButton, !selectedSlot && { opacity: 0.45 }]}
+              disabled={!selectedSlot || slotsLoading}
+              style={[
+                styles.continueButton,
+                (!selectedSlot || slotsLoading) && { opacity: 0.45 },
+              ]}
               onPress={() =>
                 navigation.navigate("BookingStylist", {
                   salonId,
@@ -206,9 +230,12 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
                 })
               }
             >
-              <Text style={styles.continueButtonText}>Continue →</Text>
+              {slotsLoading ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <Text style={styles.continueButtonText}>Continue →</Text>
+              )}
             </Pressable>
-
           </View>
         </View>
       </SafeAreaView>
