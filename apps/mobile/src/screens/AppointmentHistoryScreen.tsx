@@ -181,7 +181,7 @@ export default function AppointmentHistoryScreen({ user }: Props) {
               />
             )}
             contentContainerStyle={{ paddingBottom: 48 }}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
           />
         )}
       </SafeAreaView>

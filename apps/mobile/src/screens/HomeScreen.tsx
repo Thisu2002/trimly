@@ -20,14 +20,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ImageBackground } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { CompositeNavigationProp } from "@react-navigation/native";
+import { CompositeNavigationProp, useFocusEffect } from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
-import { RootStackParamList, TabParamList } from "../navigation/RootNavigator";
+import { HomeStackParamList, TabParamList } from "../navigation/RootNavigator";
 import { API_BASE_URL } from "../config/api";
 
 const { width } = Dimensions.get("window");
@@ -61,14 +61,12 @@ type Props = {
   user: AuthUser | null;
   idToken: string | null;
   onLogout: () => void;
-  onBrowseSalons: () => void;
-  onBrowseAppointments: () => void;
-  onOpenLoyalty: () => void;
+  onRefreshUser: () => Promise<void>;
 };
 
 type NavProp = CompositeNavigationProp<
   BottomTabNavigationProp<TabParamList, "HomeTab">,
-  NativeStackNavigationProp<RootStackParamList>
+  NativeStackNavigationProp<HomeStackParamList>
 >;
 
 type TrendingStyle = {
@@ -143,9 +141,7 @@ function TrendingSkeleton() {
 export default function HomeScreen({
   user,
   onLogout,
-  onBrowseSalons,
-  onBrowseAppointments,
-  onOpenLoyalty,
+  onRefreshUser,
 }: Props) {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
@@ -157,8 +153,14 @@ export default function HomeScreen({
   const [trendingLoading, setTrendingLoading] = useState(true);
 
   useEffect(() => {
-    fetchTrendingStyles();
-  }, []);
+  fetchTrendingStyles();
+}, []);
+
+useFocusEffect(
+  useCallback(() => {
+    onRefreshUser();
+  }, [onRefreshUser]),
+);
 
   async function fetchTrendingStyles() {
     try {
@@ -205,7 +207,7 @@ export default function HomeScreen({
               resizeMode="contain"
             />
             <View style={styles.headerRight}>
-              <Pressable onPress={onOpenLoyalty} style={styles.rewardsBtn}>
+              <Pressable onPress={() => navigation.navigate("Loyalty", {})} style={styles.rewardsBtn}>
                 <LinearGradient
                   colors={["rgba(42,79,122,0.6)", "rgba(0,59,143,0.4)"]}
                   style={styles.rewardsBtnInner}
@@ -263,7 +265,7 @@ export default function HomeScreen({
                 </View>
               </View>
 
-              <Pressable style={styles.heroCTA} onPress={onBrowseSalons}>
+              <Pressable style={styles.heroCTA} onPress={() => navigation.getParent()?.navigate("SalonsTab")}>
                 <Text style={styles.heroCTAText}>Browse Salons</Text>
                 <Ionicons name="arrow-forward" size={16} color={colors.white} />
               </Pressable>
@@ -273,7 +275,7 @@ export default function HomeScreen({
           {/* ── Section: Quick Actions ── */}
           <Text style={styles.sectionTitle}>Quick Access</Text>
           <View style={styles.quickRow}>
-            <Pressable style={styles.quickCard} onPress={onBrowseAppointments}>
+            <Pressable style={styles.quickCard} onPress={() => navigation.getParent()?.navigate("AppointmentsTab")}>
               <View
                 style={[
                   styles.quickIcon,
@@ -291,7 +293,7 @@ export default function HomeScreen({
 
             <Pressable
               style={styles.quickCard}
-              onPress={() => navigation.navigate("SalonList")}
+              onPress={() => navigation.getParent()?.navigate("SalonsTab")}
             >
               <View
                 style={[

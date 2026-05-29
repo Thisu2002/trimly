@@ -8,7 +8,7 @@ export async function getCurrentUser() {
   const idToken = session.tokenSet?.idToken;
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
-  const res = await fetch(`${apiBase}/auth/me`, {
+  const res = await fetch(`${apiBase}/api/auth/me`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ idToken }),

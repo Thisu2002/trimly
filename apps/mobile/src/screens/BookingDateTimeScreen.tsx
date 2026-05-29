@@ -7,7 +7,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
@@ -59,6 +62,7 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
   const [slots, setSlots] = useState<SlotItem[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const insets = useSafeAreaInsets();
 
   async function fetchSlots(date: string) {
     setSlotsLoading(true);
@@ -87,7 +91,7 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.outer}>
+        <View style={[styles.outer, { paddingBottom: 20 + insets.bottom + 5 }]}>
           <View style={styles.page}>
             {/* Header */}
             <Text style={styles.title}>{salonName}</Text>
@@ -182,7 +186,7 @@ export default function BookingDateTimeScreen({ route, navigation }: Props) {
             {/* Slots scroll — takes remaining vertical space */}
             <ScrollView
               style={styles.slotScroll}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true}
               contentContainerStyle={styles.slotGrid}
             >
               {slots.length === 0 ? (

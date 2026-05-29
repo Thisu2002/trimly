@@ -13,6 +13,110 @@ import md5 from "md5";
 
 const router = Router();
 
+// router.get("/salons", async (req, res) => {
+//   try {
+//     const q = String(req.query.q || "").trim();
+
+//     const salons = await prisma.salon.findMany({
+//       where: q
+//         ? {
+//             OR: [
+//               { name: { contains: q, mode: "insensitive" } },
+//               { address: { contains: q, mode: "insensitive" } },
+//             ],
+//           }
+//         : undefined,
+//       include: {
+//         services: true,
+//         stylists: {
+//           include: {
+//             user: true,
+//           },
+//         },
+//       },
+//       orderBy: { createdAt: "desc" },
+//     });
+
+//     const result = salons.map((salon) => ({
+//       id: salon.id,
+//       name: salon.name,
+//       address: salon.address,
+//       phone: salon.phone,
+//       rating: 4.0,
+//       reviewCount: 28,
+//       serviceCount: salon.services.length,
+//       stylistCount: salon.stylists.length,
+//       photos: salon.photos || [],
+//     }));
+
+//     return res.json({ salons: result });
+//   } catch (error) {
+//     console.error("Get salons error:", error);
+//     return res.status(500).json({ error: "Failed to fetch salons" });
+//   }
+// });
+
+// router.get("/salons/:salonId", async (req, res) => {
+//   try {
+//     const { salonId } = req.params;
+
+//     const salon = await prisma.salon.findUnique({
+//       where: { id: salonId },
+//       include: {
+//         businessHours: true,
+//         categories: {
+//           include: { services: true },
+//           orderBy: { name: "asc" },
+//         },
+//         stylists: {
+//           include: {
+//             user: true,
+//             services: {
+//               include: { service: true },
+//             },
+//           },
+//           orderBy: { createdAt: "asc" },
+//         },
+//       },
+//     });
+
+//     if (!salon) {
+//       return res.status(404).json({ error: "Salon not found" });
+//     }
+
+//     return res.json({
+//       salon: {
+//         id: salon.id,
+//         name: salon.name,
+//         address: salon.address,
+//         phone: salon.phone,
+//         about:
+//           "A modern salon experience with personalised treatments and professional stylists.",
+//         rating: 4.0,
+//         reviewCount: 28,
+//         photoSlots: 3,
+//         photos: salon.photos || [],
+//         businessHours: salon.businessHours,
+//         categories: salon.categories,
+//         stylists: salon.stylists.map((stylist) => ({
+//           id: stylist.id,
+//           name: stylist.user.name || stylist.user.email,
+//           bio: stylist.bio,
+//           yearsOfExperience: stylist.yearsOfExperience,
+//           status: stylist.status,
+//           services: stylist.services.map((x) => ({
+//             id: x.service.id,
+//             name: x.service.name,
+//           })),
+//         })),
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Get salon detail error:", error);
+//     return res.status(500).json({ error: "Failed to fetch salon details" });
+//   }
+// });
+
 router.get("/salons", async (req, res) => {
   try {
     const q = String(req.query.q || "").trim();
@@ -37,17 +141,36 @@ router.get("/salons", async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    const result = salons.map((salon) => ({
-      id: salon.id,
-      name: salon.name,
-      address: salon.address,
-      phone: salon.phone,
-      rating: 4.0,
-      reviewCount: 28,
-      serviceCount: salon.services.length,
-      stylistCount: salon.stylists.length,
-      photos: salon.photos || [],
-    }));
+    // Aggregate real ratings in one query
+    const salonIds = salons.map((s) => s.id);
+    const ratingAggs = await prisma.appointmentReview.groupBy({
+      by: ["salonId"],
+      where: { salonId: { in: salonIds } },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+    const ratingMap = new Map(
+      ratingAggs.map((r) => [
+        r.salonId,
+        { avg: r._avg.rating ?? 0, count: r._count.rating },
+      ])
+    );
+
+    const result = salons.map((salon) => {
+      const ratingData = ratingMap.get(salon.id);
+      return {
+        id: salon.id,
+        name: salon.name,
+        address: salon.address,
+        phone: salon.phone,
+        rating: ratingData ? parseFloat(ratingData.avg.toFixed(1)) : 0,
+        reviewCount: ratingData?.count ?? 0,
+        serviceCount: salon.services.length,
+        stylistCount: salon.stylists.length,
+        photos: salon.photos || [],
+      };
+    });
 
     return res.json({ salons: result });
   } catch (error) {
@@ -60,25 +183,44 @@ router.get("/salons/:salonId", async (req, res) => {
   try {
     const { salonId } = req.params;
 
-    const salon = await prisma.salon.findUnique({
-      where: { id: salonId },
-      include: {
-        businessHours: true,
-        categories: {
-          include: { services: true },
-          orderBy: { name: "asc" },
+    const [salon, ratingAgg, recentReviews] = await Promise.all([
+      prisma.salon.findUnique({
+        where: { id: salonId },
+        include: {
+          businessHours: true,
+          categories: {
+            include: { services: true },
+            orderBy: { name: "asc" },
+          },
+          stylists: {
+            include: {
+              user: true,
+              services: {
+                include: { service: true },
+              },
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
-        stylists: {
-          include: {
-            user: true,
-            services: {
-              include: { service: true },
+      }),
+      prisma.appointmentReview.aggregate({
+        where: { salonId },
+        _avg: { rating: true },
+        _count: { rating: true },
+      }),
+      prisma.appointmentReview.findMany({
+        where: { salonId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: {
+          customer: {
+            include: {
+              user: { select: { name: true } },
             },
           },
-          orderBy: { createdAt: "asc" },
         },
-      },
-    });
+      }),
+    ]);
 
     if (!salon) {
       return res.status(404).json({ error: "Salon not found" });
@@ -92,12 +234,21 @@ router.get("/salons/:salonId", async (req, res) => {
         phone: salon.phone,
         about:
           "A modern salon experience with personalised treatments and professional stylists.",
-        rating: 4.0,
-        reviewCount: 28,
+        rating: ratingAgg._avg.rating
+          ? parseFloat(ratingAgg._avg.rating.toFixed(1))
+          : 0,
+        reviewCount: ratingAgg._count.rating,
         photoSlots: 3,
         photos: salon.photos || [],
         businessHours: salon.businessHours,
         categories: salon.categories,
+        reviews: recentReviews.map((r) => ({
+          id: r.id,
+          customerName: r.customer.user.name ?? "Anonymous",
+          rating: r.rating,
+          comment: r.comment,
+          createdAt: r.createdAt,
+        })),
         stylists: salon.stylists.map((stylist) => ({
           id: stylist.id,
           name: stylist.user.name || stylist.user.email,
@@ -319,21 +470,23 @@ router.post("/initiate-payment", async (req, res) => {
       return res.status(400).json({ error: "email missing in token" });
     }
 
-    const userName =
-      typeof payload.name === "string" ? payload.name : email.split("@")[0];
-
-    const user = await prisma.user.upsert({
+    const user = await prisma.user.findUnique({
       where: { auth0Sub: sub },
-      update: { email, name: userName, role: "customer" },
-      create: { auth0Sub: sub, email, name: userName, role: "customer" },
     });
 
-    await prisma.customer.upsert({
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: "User not found. Please log in again." });
+    }
+
+    const customer = await prisma.customer.findUnique({
       where: { userId: user.id },
-      update: {},
-      create: { userId: user.id },
     });
 
+    if (!customer) {
+      return res.status(500).json({ error: "Customer profile missing" });
+    }
     const services = await prisma.service.findMany({
       where: {
         id: { in: serviceAssignments.map((x) => x.serviceId) },
@@ -392,14 +545,6 @@ router.post("/initiate-payment", async (req, res) => {
       }
     }
 
-    const customer = await prisma.customer.findUnique({
-      where: { userId: user.id },
-    });
-
-    if (!customer) {
-      return res.status(500).json({ error: "Customer profile missing" });
-    }
-
     const pendingPayment = await prisma.pendingPayment.create({
       data: {
         customerId: customer.id,
@@ -423,8 +568,7 @@ router.post("/initiate-payment", async (req, res) => {
       merchantId + pendingPayment.id + amountFormatted + "LKR" + hashedSecret,
     ).toUpperCase();
 
-    const notifyUrl =
-      process.env.PAYHERE_NOTIFY_URL;
+    const notifyUrl = process.env.PAYHERE_NOTIFY_URL;
 
     const paymentData = {
       sandbox: true,

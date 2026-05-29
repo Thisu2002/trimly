@@ -8,7 +8,7 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
@@ -39,6 +39,7 @@ export default function BookingSummaryScreen({
 
   const [loading, setLoading] = React.useState(false);
   const total = selectedServices.reduce((sum, s) => sum + s.priceLkr, 0);
+  const insets = useSafeAreaInsets();
 
   function pollPaymentStatus(pendingPaymentId: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -133,91 +134,105 @@ export default function BookingSummaryScreen({
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.outer}>
+        <View style={styles.outer}>
           <View style={styles.page}>
-            <Text style={styles.title}>{salonName}</Text>
-            <Text style={styles.meta}>
-              {date} · {startTime}
-            </Text>
-            {/* Step Progress */}
-            <View style={styles.stepRow}>
-              {STEPS.map((step, i) => {
-                const isCompleted = i < CURRENT_STEP;
-                const isActive = i === CURRENT_STEP;
-                return (
-                  <View key={step} style={styles.stepItem}>
-                    {i > 0 && (
+            <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ paddingBottom: 12 }}
+            >
+              <Text style={styles.title}>{salonName}</Text>
+              <Text style={styles.meta}>
+                {date} · {startTime}
+              </Text>
+              {/* Step Progress */}
+              <View style={styles.stepRow}>
+                {STEPS.map((step, i) => {
+                  const isCompleted = i < CURRENT_STEP;
+                  const isActive = i === CURRENT_STEP;
+                  return (
+                    <View key={step} style={styles.stepItem}>
+                      {i > 0 && (
+                        <View
+                          style={[
+                            styles.stepLine,
+                            (isCompleted || isActive) && styles.stepLineActive,
+                          ]}
+                        />
+                      )}
                       <View
                         style={[
-                          styles.stepLine,
-                          (isCompleted || isActive) && styles.stepLineActive,
+                          styles.stepDot,
+                          isCompleted && styles.stepDotCompleted,
+                          isActive && styles.stepDotActive,
                         ]}
-                      />
-                    )}
-                    <View
-                      style={[
-                        styles.stepDot,
-                        isCompleted && styles.stepDotCompleted,
-                        isActive && styles.stepDotActive,
-                      ]}
-                    >
-                      {/* {isCompleted && <Text style={styles.stepCheck}>✓</Text>} */}
-                      {isActive && <View style={styles.stepDotInner} />}
+                      >
+                        {/* {isCompleted && <Text style={styles.stepCheck}>✓</Text>} */}
+                        {isActive && <View style={styles.stepDotInner} />}
+                      </View>
+                      <Text
+                        style={[
+                          styles.stepLabel,
+                          isActive && styles.stepLabelActive,
+                          isCompleted && styles.stepLabelCompleted,
+                        ]}
+                      >
+                        {step}
+                      </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.stepLabel,
-                        isActive && styles.stepLabelActive,
-                        isCompleted && styles.stepLabelCompleted,
-                      ]}
-                    >
-                      {step}
+                  );
+                })}
+              </View>
+              <Text style={styles.sectionTitle}>Summary</Text>
+              {selectedServices.map((service) => (
+                <View key={service.id} style={styles.summaryRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.serviceName}>{service.name}</Text>
+                    <Text style={styles.stylistName}>
+                      with {selectedStylists[service.id]?.name}
                     </Text>
                   </View>
-                );
-              })}
-            </View>
-            <Text style={styles.sectionTitle}>Summary</Text>
-            {selectedServices.map((service) => (
-              <View key={service.id} style={styles.summaryRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.serviceName}>{service.name}</Text>
-                  <Text style={styles.stylistName}>
-                    with {selectedStylists[service.id]?.name}
-                  </Text>
+                  <Text style={styles.price}>LKR {service.priceLkr}</Text>
                 </View>
-                <Text style={styles.price}>LKR {service.priceLkr}</Text>
-              </View>
-            ))}
-            <View style={styles.divider} />
-            <View style={styles.totalRow}>
-              <Text style={styles.totalText}>Total</Text>
-              <Text style={styles.totalText}>LKR {total}</Text>
-            </View>
-            <Pressable
+              ))}
+            </ScrollView>
+            <View
               style={[
-                styles.continueButton,
-                loading && styles.continueButtonDisabled,
+                styles.pinnedPanel,
+                { paddingBottom: insets.bottom > 0 ? 0 : 4 },
               ]}
-              onPress={handleConfirm}
-              disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <Text style={styles.continueButtonText}>Confirm & Pay →</Text>
-              )}
-            </Pressable>
+              <View style={styles.divider} />
+              <View style={styles.totalRow}>
+                <Text style={styles.totalText}>Total</Text>
+                <Text style={styles.totalText}>LKR {total}</Text>
+              </View>
+              <Pressable
+                style={[
+                  styles.continueButton,
+                  loading && styles.continueButtonDisabled,
+                ]}
+                onPress={handleConfirm}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <Text style={styles.continueButtonText}>Confirm & Pay →</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  outer: { padding: 12 },
+  outer: { padding: 12, flex: 1, paddingBottom: 62 + 16 },
   page: {
+    flex: 1,
     backgroundColor: colors.page,
     borderRadius: 24,
     padding: 18,
@@ -310,6 +325,12 @@ const styles = StyleSheet.create({
   serviceName: { fontWeight: "700", color: colors.text },
   stylistName: { color: colors.textSoft, marginTop: 4 },
   price: { color: colors.text },
+  pinnedPanel: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
   divider: {
     height: 1,
     backgroundColor: colors.border,

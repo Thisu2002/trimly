@@ -26,7 +26,8 @@ type Props = {
 };
 
 export default function SalonListScreen({ navigation: navProp }: Props) {
-  const hookNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const hookNav =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const navigation = navProp ?? hookNav;
 
   const [query, setQuery] = useState("");
@@ -37,7 +38,7 @@ export default function SalonListScreen({ navigation: navProp }: Props) {
     try {
       setLoading(true);
       const res = await fetch(
-        `${API_BASE_URL}/api/mobile/salons${query ? `?q=${encodeURIComponent(query)}` : ""}`
+        `${API_BASE_URL}/api/mobile/salons${query ? `?q=${encodeURIComponent(query)}` : ""}`,
       );
       const data = await res.json();
       setSalons(data.salons || []);
@@ -61,7 +62,6 @@ export default function SalonListScreen({ navigation: navProp }: Props) {
     >
       <SafeAreaView style={styles.safe}>
         <View style={styles.page}>
-
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.screenTitle}>Discover Salons</Text>
@@ -87,8 +87,17 @@ export default function SalonListScreen({ navigation: navProp }: Props) {
                 returnKeyType="search"
               />
               {query.length > 0 && (
-                <Pressable onPress={() => { setQuery(""); fetchSalons(); }}>
-                  <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                <Pressable
+                  onPress={() => {
+                    setQuery("");
+                    fetchSalons();
+                  }}
+                >
+                  <Ionicons
+                    name="close-circle"
+                    size={16}
+                    color={colors.textMuted}
+                  />
                 </Pressable>
               )}
             </View>
@@ -98,7 +107,10 @@ export default function SalonListScreen({ navigation: navProp }: Props) {
           </View>
 
           {loading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} color={colors.primaryLight} />
+            <ActivityIndicator
+              style={{ marginTop: 40 }}
+              color={colors.primaryLight}
+            />
           ) : salons.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="cut-outline" size={40} color={colors.textMuted} />
@@ -110,12 +122,18 @@ export default function SalonListScreen({ navigation: navProp }: Props) {
               keyExtractor={(item) => item.id}
               numColumns={2}
               columnWrapperStyle={{ gap: 12 }}
-              contentContainerStyle={{ gap: 12, paddingTop: 16, paddingBottom: 100 }}
-              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                gap: 12,
+                paddingTop: 16,
+                paddingBottom: 50,
+              }}
+              showsVerticalScrollIndicator={true}
               renderItem={({ item }) => (
                 <SalonCard
                   item={item}
-                  onPress={() => navigation.navigate("SalonDetail", { salonId: item.id })}
+                  onPress={() =>
+                    navigation.navigate("SalonDetail", { salonId: item.id })
+                  }
                 />
               )}
             />
@@ -153,20 +171,37 @@ function SalonCard({
         </View>
       )}
 
-      {/* Pill badge over image */}
       <View style={styles.ratingBadge}>
-        <Text style={styles.ratingBadgeText}>⭐ {item.rating.toFixed(1)}</Text>
+        {item.rating > 0 ? (
+          <>
+          <Ionicons name="star" size={11} color="#F5A623" />
+            <Text style={styles.ratingBadgeText}>
+              {item.rating.toFixed(1)}
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.ratingBadgeText}>New</Text>
+        )}
       </View>
 
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {item.name}
+        </Text>
         <Text style={styles.cardMeta} numberOfLines={1}>
-          <Ionicons name="location-outline" size={11} color={colors.textMuted} />
-          {" "}{item.address || "Address unavailable"}
+          <Ionicons
+            name="location-outline"
+            size={11}
+            color={colors.textMuted}
+          />{" "}
+          {item.address || "Address unavailable"}
         </Text>
         <View style={styles.cardFooter}>
           <Ionicons name="people-outline" size={12} color={colors.textMuted} />
-          <Text style={styles.cardMetaSmall}> {item.stylistCount} stylists</Text>
+          <Text style={styles.cardMetaSmall}>
+            {" "}
+            {item.stylistCount} stylists
+          </Text>
         </View>
       </View>
     </Pressable>
@@ -257,6 +292,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 8,
     right: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: 20,
     paddingHorizontal: 7,

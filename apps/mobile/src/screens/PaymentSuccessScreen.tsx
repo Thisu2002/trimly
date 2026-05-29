@@ -9,16 +9,16 @@ export default function PaymentSuccessScreen({ navigation }: any) {
       style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
     >
       <View style={styles.card}>
-        <Text style={styles.title}>Payment Successful 🎉</Text>
+        <Text style={styles.title}>Payment Successful!</Text>
         <Text style={styles.subtitle}>
           Your appointment has been confirmed.
         </Text>
 
         <Pressable
           style={styles.button}
-          onPress={() => navigation.popToTop()}
+          onPress={() => navigation.navigate("Appointments")}
         >
-          <Text style={styles.buttonText}>Go Home</Text>
+          <Text style={styles.buttonText}>View My Bookings</Text>
         </Pressable>
       </View>
     </LinearGradient>

@@ -42,6 +42,7 @@ export type SalonDetail = {
   about: string;
   rating: number;
   reviewCount: number;
+  reviews: ReviewItem[];
   photoSlots: number;
   categories: CategoryItem[];
   stylists: StylistItem[];
@@ -62,6 +63,14 @@ export type AvailableStylistGroup = {
   serviceStartTime: string;
   serviceEndTime: string;
   stylists: StylistItem[];
+};
+
+export type ReviewItem = {
+  id: string;
+  customerName: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
 };
 
 // ── Recommendation types ──────────────────────────────────────────────────────

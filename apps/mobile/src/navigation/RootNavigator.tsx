@@ -77,6 +77,79 @@ export type RootStackParamList = {
   Loyalty: { salonId?: string } | undefined;
 };
 
+export type HomeStackParamList = {
+  Home: undefined;
+  SalonList: undefined;
+  SalonDetail: { salonId: string };
+  BookingServices: { salonId: string };
+  BookingDateTime: {
+    salonId: string;
+    salonName: string;
+    selectedServices: ServiceItem[];
+  };
+  BookingStylist: {
+    salonId: string;
+    salonName: string;
+    date: string;
+    startTime: string;
+    selectedServices: ServiceItem[];
+  };
+  BookingSummary: {
+    salonId: string;
+    salonName: string;
+    date: string;
+    startTime: string;
+    selectedServices: ServiceItem[];
+    selectedStylists: Record<string, StylistItem>;
+    idToken: string;
+  };
+  Appointments: undefined;
+  PaymentSuccess: { appointmentId: string };
+  StyleRecommendation: undefined;
+  Mirror: { detectedFaceShape?: string; landmarks?: number[] };
+  FaceScan: undefined;
+  VirtualTryOn: {
+    faceShape: string;
+    landmarks: number[];
+    photos: { front: string; left: string; right: string };
+    existingGenerated?: Record<
+      string,
+      { front?: string; left?: string; right?: string }
+    >;
+    userSub?: string;
+    idToken?: string;
+  };
+  Loyalty: { salonId?: string } | undefined;
+};
+
+export type SalonsStackParamList = {
+  SalonListMain: undefined;
+  SalonDetail: { salonId: string };
+  BookingServices: { salonId: string };
+  BookingDateTime: {
+    salonId: string;
+    salonName: string;
+    selectedServices: ServiceItem[];
+  };
+  BookingStylist: {
+    salonId: string;
+    salonName: string;
+    date: string;
+    startTime: string;
+    selectedServices: ServiceItem[];
+  };
+  BookingSummary: {
+    salonId: string;
+    salonName: string;
+    date: string;
+    startTime: string;
+    selectedServices: ServiceItem[];
+    selectedStylists: Record<string, StylistItem>;
+    idToken: string;
+  };
+  PaymentSuccess: { appointmentId: string };
+};
+
 export type TabParamList = {
   HomeTab: undefined;
   SalonsTab: undefined;
@@ -87,6 +160,8 @@ export type TabParamList = {
 // ─── Navigators ───────────────────────────────────────────────────────────────
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const HomeStack = createNativeStackNavigator<HomeStackParamList>();
+const SalonsStack = createNativeStackNavigator<SalonsStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 type Props = {
@@ -94,6 +169,7 @@ type Props = {
   idToken: string | null;
   isNewUserRef: React.RefObject<boolean>;
   onLoginSuccess: (user: AuthUser, idToken: string, isNewUser: boolean) => void;
+  onRefreshUser: () => Promise<void>;
   onLogout: () => void;
 };
 
@@ -103,16 +179,156 @@ function TabBarBackground() {
   return <View style={tabStyles.tabBarBg} />;
 }
 
+// ─── Home stack navigator ─────────────────────────────────────────────────────
+
+function HomeStackNavigator({
+  user,
+  idToken,
+  onLogout,
+  onRefreshUser,
+}: {
+  user: AuthUser;
+  idToken: string | null;
+  onLogout: () => void;
+  onRefreshUser: () => Promise<void>;
+}) {
+  return (
+    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStack.Screen name="Home">
+        {({ navigation }) => (
+          <HomeScreen
+            user={user}
+            idToken={idToken}
+            onLogout={onLogout}
+            onRefreshUser={onRefreshUser}
+          />
+        )}
+      </HomeStack.Screen>
+      <HomeStack.Screen name="SalonList" component={SalonListScreen} />
+      <HomeStack.Screen name="SalonDetail" component={SalonDetailScreen} />
+      <HomeStack.Screen
+        name="BookingServices"
+        component={BookingServicesScreen}
+      />
+      <HomeStack.Screen
+        name="BookingDateTime"
+        component={BookingDateTimeScreen}
+      />
+      <HomeStack.Screen
+        name="BookingStylist"
+        component={BookingStylistScreen}
+      />
+      <HomeStack.Screen name="BookingSummary">
+        {(props) => (
+          <BookingSummaryScreen {...props} idToken={idToken!} />
+        )}
+      </HomeStack.Screen>
+      <HomeStack.Screen
+        name="PaymentSuccess"
+        component={PaymentSuccessScreen}
+      />
+      <HomeStack.Screen name="Appointments">
+        {(props) => <AppointmentHistoryScreen {...props} user={user} />}
+      </HomeStack.Screen>
+      <HomeStack.Screen name="StyleRecommendation">
+        {(props) => (
+          <StyleRecommendationScreen {...props} userSub={user?.sub} />
+        )}
+      </HomeStack.Screen>
+      <HomeStack.Screen name="Mirror">
+        {(props) => (
+          <MirrorScreen {...props} idToken={idToken!} userSub={user?.sub} />
+        )}
+      </HomeStack.Screen>
+      <HomeStack.Screen name="FaceScan">
+        {(props) => (
+          <FaceScanScreen
+            {...props}
+            idToken={idToken!}
+            userSub={user?.sub}
+            onScanComplete={(faceShape, landmarks, photos) => {
+              props.navigation.navigate("VirtualTryOn", {
+                faceShape,
+                landmarks,
+                photos,
+                userSub: user?.sub,
+                idToken: idToken!,
+              });
+            }}
+          />
+        )}
+      </HomeStack.Screen>
+      <HomeStack.Screen name="VirtualTryOn">
+        {(props) => (
+          <VirtualTryOnScreen
+            {...props}
+            faceShape={props.route.params.faceShape}
+            landmarks={props.route.params.landmarks}
+            photos={props.route.params.photos}
+          />
+        )}
+      </HomeStack.Screen>
+      <HomeStack.Screen name="Loyalty">
+        {(props) => (
+          <LoyaltyScreen
+            {...props}
+            idToken={idToken!}
+            salonId={props.route?.params?.salonId}
+          />
+        )}
+      </HomeStack.Screen>
+    </HomeStack.Navigator>
+  );
+}
+
+// ─── Salons stack navigator ───────────────────────────────────────────────────
+
+function SalonsStackNavigator({
+  idToken,
+}: {
+  idToken: string | null;
+}) {
+  return (
+    <SalonsStack.Navigator screenOptions={{ headerShown: false }}>
+      <SalonsStack.Screen name="SalonListMain" component={SalonListScreen} />
+      <SalonsStack.Screen name="SalonDetail" component={SalonDetailScreen} />
+      <SalonsStack.Screen
+        name="BookingServices"
+        component={BookingServicesScreen}
+      />
+      <SalonsStack.Screen
+        name="BookingDateTime"
+        component={BookingDateTimeScreen}
+      />
+      <SalonsStack.Screen
+        name="BookingStylist"
+        component={BookingStylistScreen}
+      />
+      <SalonsStack.Screen name="BookingSummary">
+        {(props) => (
+          <BookingSummaryScreen {...props} idToken={idToken!} />
+        )}
+      </SalonsStack.Screen>
+      <SalonsStack.Screen
+        name="PaymentSuccess"
+        component={PaymentSuccessScreen}
+      />
+    </SalonsStack.Navigator>
+  );
+}
+
 // ─── Main tab navigator ───────────────────────────────────────────────────────
 
 function MainTabs({
   user,
   idToken,
   onLogout,
+  onRefreshUser,
 }: {
   user: AuthUser;
   idToken: string | null;
   onLogout: () => void;
+  onRefreshUser: () => Promise<void>;
 }) {
   const insets = useSafeAreaInsets();
   const tabBarHeight = 62 + insets.bottom;
@@ -154,24 +370,18 @@ function MainTabs({
       })}
     >
       <Tab.Screen name="HomeTab" options={{ tabBarLabel: "Home" }}>
-        {({ navigation }) => (
-          <HomeScreen
+        {() => (
+          <HomeStackNavigator
             user={user}
             idToken={idToken}
             onLogout={onLogout}
-            onBrowseSalons={() => navigation.getParent()?.navigate("SalonList")}
-            onBrowseAppointments={() =>
-              navigation.getParent()?.navigate("Appointments")
-            }
-            onOpenLoyalty={() =>
-              navigation.getParent()?.navigate("Loyalty", {})
-            }
+            onRefreshUser={onRefreshUser}
           />
         )}
       </Tab.Screen>
 
       <Tab.Screen name="SalonsTab" options={{ tabBarLabel: "Salons" }}>
-        {() => <SalonListScreen />}
+        {() => <SalonsStackNavigator idToken={idToken} />}
       </Tab.Screen>
 
       <Tab.Screen name="AppointmentsTab" options={{ tabBarLabel: "Bookings" }}>
@@ -194,19 +404,19 @@ export default function RootNavigator({
   idToken,
   isNewUserRef,
   onLoginSuccess,
+  onRefreshUser,
   onLogout,
 }: Props) {
-  // Inside RootNavigator, replace the authenticated stack with:
-
   function AuthGate({
     isNewUserRef,
     navigation,
+    onRefreshUser,
   }: {
     isNewUserRef: React.RefObject<boolean>;
     navigation: any;
+    onRefreshUser: () => Promise<void>;
   }) {
     useEffect(() => {
-      console.log("AuthGate: isNewUser?", isNewUserRef.current);
       if (isNewUserRef.current) {
         navigation.replace("ProfileSetup");
       } else {
@@ -214,113 +424,43 @@ export default function RootNavigator({
       }
     }, []);
 
-    return null; // renders nothing, just redirects
+    return null;
   }
+
   return (
     <NavigationContainer>
       {user ? (
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="AuthGate">
-              {({ navigation }) => (
-                <AuthGate isNewUserRef={isNewUserRef} navigation={navigation} />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="ProfileSetup">
-              {({ navigation }) => (
-                <ProfileSetupScreen
-                  user={user}
-                  idToken={idToken}
-                  onComplete={() => navigation.replace("MainTabs")}
-                />
-              )}
-            </Stack.Screen>
-
-            <Stack.Screen name="MainTabs">
-              {() => (
-                <MainTabs user={user} idToken={idToken} onLogout={onLogout} />
-              )}
-            </Stack.Screen>
-
-            <Stack.Screen name="SalonList" component={SalonListScreen} />
-            <Stack.Screen name="SalonDetail" component={SalonDetailScreen} />
-            <Stack.Screen
-              name="BookingServices"
-              component={BookingServicesScreen}
-            />
-            <Stack.Screen
-              name="BookingDateTime"
-              component={BookingDateTimeScreen}
-            />
-            <Stack.Screen
-              name="BookingStylist"
-              component={BookingStylistScreen}
-            />
-            <Stack.Screen name="BookingSummary">
-              {(props) => (
-                <BookingSummaryScreen {...props} idToken={idToken!} />
-              )}
-            </Stack.Screen>
-            <Stack.Screen
-              name="PaymentSuccess"
-              component={PaymentSuccessScreen}
-            />
-            <Stack.Screen name="Appointments">
-              {(props) => <AppointmentHistoryScreen {...props} user={user} />}
-            </Stack.Screen>
-            <Stack.Screen name="StyleRecommendation">
-              {(props) => (
-                <StyleRecommendationScreen {...props} userSub={user?.sub} />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="Mirror">
-              {(props) => (
-                <MirrorScreen
-                  {...props}
-                  idToken={idToken!}
-                  userSub={user?.sub}
-                />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="FaceScan">
-              {(props) => (
-                <FaceScanScreen
-                  {...props}
-                  idToken={idToken!}
-                  userSub={user?.sub}
-                  onScanComplete={(faceShape, landmarks, photos) => {
-                    props.navigation.navigate("VirtualTryOn", {
-                      faceShape,
-                      landmarks,
-                      photos,
-                      userSub: user?.sub,
-                      idToken: idToken!,
-                    });
-                  }}
-                />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="VirtualTryOn">
-              {(props) => (
-                <VirtualTryOnScreen
-                  {...props}
-                  faceShape={props.route.params.faceShape}
-                  landmarks={props.route.params.landmarks}
-                  photos={props.route.params.photos}
-                />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="Loyalty">
-              {(props) => (
-                <LoyaltyScreen
-                  {...props}
-                  idToken={idToken!}
-                  salonId={props.route?.params?.salonId}
-                />
-              )}
-            </Stack.Screen>
-          </Stack.Navigator>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="AuthGate">
+            {({ navigation }) => (
+              <AuthGate
+                isNewUserRef={isNewUserRef}
+                navigation={navigation}
+                onRefreshUser={onRefreshUser}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="ProfileSetup">
+            {({ navigation }) => (
+              <ProfileSetupScreen
+                user={user}
+                idToken={idToken}
+                onComplete={() => navigation.replace("MainTabs")}
+              />
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="MainTabs">
+            {() => (
+              <MainTabs
+                user={user}
+                idToken={idToken}
+                onLogout={onLogout}
+                onRefreshUser={onRefreshUser}
+              />
+            )}
+          </Stack.Screen>
+        </Stack.Navigator>
       ) : (
-        // Unauthenticated — single login screen, no stack chrome needed
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Login">
             {() => <LoginScreen onLoginSuccess={onLoginSuccess} />}

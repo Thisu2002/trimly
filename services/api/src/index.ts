@@ -74,47 +74,51 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/review", reviewRoutes);
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-app.post("/auth/me", async (req, res) => {
-  try {
-    const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ error: "idToken required" });
+// app.post("/auth/me", async (req, res) => {
+//   try {
+//     const { idToken } = req.body;
+//     if (!idToken) return res.status(400).json({ error: "idToken required" });
 
-    const payload = await verifyIdToken(idToken);
+//     const payload = await verifyIdToken(idToken);
+//     console.log("Token payload:", payload);
 
-    const sub = String(payload.sub);
-    const email = payload.email as string | undefined;
+//     const sub = String(payload.sub);
+//     const email = payload.email as string | undefined;
 
-    if (!email)
-      return res.status(400).json({ error: "email missing in token" });
+//     if (!email)
+//       return res.status(400).json({ error: "email missing in token" });
 
-    const userName =
-      typeof payload.name === "string" ? payload.name : email.split("@")[0];
+//     const userName =
+//       typeof payload.name === "string" ? payload.name : email.split("@")[0];
+    
+//     console.log("payload.name:", payload.name);
+//     console.log("Determined userName:", userName);
 
-    const rawRoles = payload["https://trimly.app/roles"];
-    const authRoles = Array.isArray(rawRoles) ? rawRoles.map(String) : [];
+//     const rawRoles = payload["https://trimly.app/roles"];
+//     const authRoles = Array.isArray(rawRoles) ? rawRoles.map(String) : [];
 
-    const role: "admin" | "customer" = authRoles.includes("admin")
-      ? "admin"
-      : "customer";
+//     const role: "admin" | "customer" = authRoles.includes("admin")
+//       ? "admin"
+//       : "customer";
 
-    let user = await prisma.user.findUnique({
-      where: { auth0Sub: sub },
-      include: { adminSalon: true },
-    });
+//     let user = await prisma.user.findUnique({
+//       where: { auth0Sub: sub },
+//       include: { adminSalon: true },
+//     });
 
-    if (!user) {
-      user = await prisma.user.create({
-        data: { auth0Sub: sub, email, role, name: userName },
-        include: { adminSalon: true },
-      });
-    }
+//     if (!user) {
+//       user = await prisma.user.create({
+//         data: { auth0Sub: sub, email, role, name: userName },
+//         include: { adminSalon: true },
+//       });
+//     }
 
-    return res.json({ user });
-  } catch (e) {
-    console.error("Auth error:", e);
-    return res.status(401).json({ error: "Invalid token" });
-  }
-});
+//     return res.json({ user });
+//   } catch (e) {
+//     console.error("Auth error:", e);
+//     return res.status(401).json({ error: "Invalid token" });
+//   }
+// });
 
 // const port = Number(process.env.PORT || 4000);
 // app.listen(port, () =>

@@ -1,3 +1,4 @@
+//D:\trimly\apps\web\src\app\(protected)\customer\home\page.tsx
 import { auth0 } from "@/lib/auth0";
 import { getCurrentUser } from "@/app/api/getUser";
 import { redirect } from "next/navigation";

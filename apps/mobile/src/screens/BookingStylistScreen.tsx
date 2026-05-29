@@ -7,7 +7,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
@@ -28,6 +31,7 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
     Record<string, StylistItem>
   >({});
   const [loading, setLoading] = useState(true);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     (async () => {
@@ -73,123 +77,139 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.outer}>
+        <View style={styles.outer}>
           <View style={styles.page}>
-            <Text style={styles.title}>{salonName}</Text>
-            <Text style={styles.meta}>
-              {date} · {startTime}
-            </Text>
+            <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ paddingBottom: 12 }}
+            >
+              <Text style={styles.title}>{salonName}</Text>
+              <Text style={styles.meta}>
+                {date} · {startTime}
+              </Text>
 
-            {/* Step Progress */}
-            <View style={styles.stepRow}>
-              {STEPS.map((step, i) => {
-                const isCompleted = i < CURRENT_STEP;
-                const isActive = i === CURRENT_STEP;
-                return (
-                  <View key={step} style={styles.stepItem}>
-                    {i > 0 && (
+              {/* Step Progress */}
+              <View style={styles.stepRow}>
+                {STEPS.map((step, i) => {
+                  const isCompleted = i < CURRENT_STEP;
+                  const isActive = i === CURRENT_STEP;
+                  return (
+                    <View key={step} style={styles.stepItem}>
+                      {i > 0 && (
+                        <View
+                          style={[
+                            styles.stepLine,
+                            (isCompleted || isActive) && styles.stepLineActive,
+                          ]}
+                        />
+                      )}
                       <View
                         style={[
-                          styles.stepLine,
-                          (isCompleted || isActive) && styles.stepLineActive,
+                          styles.stepDot,
+                          isCompleted && styles.stepDotCompleted,
+                          isActive && styles.stepDotActive,
                         ]}
-                      />
+                      >
+                        {/* {isCompleted && <Text style={styles.stepCheck}>✓</Text>} */}
+                        {isActive && <View style={styles.stepDotInner} />}
+                      </View>
+                      <Text
+                        style={[
+                          styles.stepLabel,
+                          isActive && styles.stepLabelActive,
+                          isCompleted && styles.stepLabelCompleted,
+                        ]}
+                      >
+                        {step}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {loading ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primaryLight}
+                  style={{ marginVertical: 40 }}
+                />
+              ) : (
+                groups.map((group) => (
+                  <View key={group.serviceId} style={{ marginBottom: 20 }}>
+                    <Text style={styles.groupTitle}>{group.serviceName}</Text>
+                    {group.stylists.length === 0 ? (
+                      <Text style={styles.emptyText}>
+                        No stylist available for this slot.
+                      </Text>
+                    ) : (
+                      <View style={styles.grid}>
+                        {group.stylists.map((stylist) => {
+                          const active =
+                            selectedStylists[group.serviceId]?.id ===
+                            stylist.id;
+                          return (
+                            <Pressable
+                              key={stylist.id}
+                              style={[
+                                styles.stylistCard,
+                                active && styles.stylistCardActive,
+                              ]}
+                              onPress={() =>
+                                pickStylist(group.serviceId, stylist)
+                              }
+                            >
+                              <View style={styles.avatar} />
+                              <Text style={styles.stylistName}>
+                                {stylist.name}
+                              </Text>
+                              <Text style={styles.profileText}>
+                                View Profile
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
                     )}
-                    <View
-                      style={[
-                        styles.stepDot,
-                        isCompleted && styles.stepDotCompleted,
-                        isActive && styles.stepDotActive,
-                      ]}
-                    >
-                      {/* {isCompleted && <Text style={styles.stepCheck}>✓</Text>} */}
-                      {isActive && <View style={styles.stepDotInner} />}
-                    </View>
-                    <Text
-                      style={[
-                        styles.stepLabel,
-                        isActive && styles.stepLabelActive,
-                        isCompleted && styles.stepLabelCompleted,
-                      ]}
-                    >
-                      {step}
-                    </Text>
                   </View>
-                );
-              })}
-            </View>
-
-            {loading ? (
-              <ActivityIndicator
-                size="small"
-                color={colors.primaryLight}
-                style={{ marginVertical: 40 }}
-              />
-            ) : (
-              groups.map((group) => (
-                <View key={group.serviceId} style={{ marginBottom: 20 }}>
-                  <Text style={styles.groupTitle}>{group.serviceName}</Text>
-                  {group.stylists.length === 0 ? (
-                    <Text style={styles.emptyText}>
-                      No stylist available for this slot.
-                    </Text>
-                  ) : (
-                    <View style={styles.grid}>
-                      {group.stylists.map((stylist) => {
-                        const active =
-                          selectedStylists[group.serviceId]?.id === stylist.id;
-                        return (
-                          <Pressable
-                            key={stylist.id}
-                            style={[
-                              styles.stylistCard,
-                              active && styles.stylistCardActive,
-                            ]}
-                            onPress={() =>
-                              pickStylist(group.serviceId, stylist)
-                            }
-                          >
-                            <View style={styles.avatar} />
-                            <Text style={styles.stylistName}>
-                              {stylist.name}
-                            </Text>
-                            <Text style={styles.profileText}>View Profile</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-              ))
-            )}
-
-            <Pressable
-              disabled={!ready}
-              style={[styles.continueButton, !ready && { opacity: 0.5 }]}
-              onPress={() =>
-                navigation.navigate("BookingSummary", {
-                  salonId,
-                  salonName,
-                  date,
-                  startTime,
-                  selectedServices,
-                  selectedStylists,
-                  idToken: "",
-                })
-              }
+                ))
+              )}
+            </ScrollView>
+            <View
+              style={[
+                styles.pinnedPanel,
+                { paddingBottom: insets.bottom > 0 ? 0 : 4 },
+              ]}
             >
-              <Text style={styles.continueButtonText}>Continue →</Text>
-            </Pressable>
+              <Pressable
+                disabled={!ready}
+                style={[styles.continueButton, !ready && { opacity: 0.5 }]}
+                onPress={() =>
+                  navigation.navigate("BookingSummary", {
+                    salonId,
+                    salonName,
+                    date,
+                    startTime,
+                    selectedServices,
+                    selectedStylists,
+                    idToken: "",
+                  })
+                }
+              >
+                <Text style={styles.continueButtonText}>Continue →</Text>
+              </Pressable>
+            </View>
           </View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  outer: { padding: 12 },
+  outer: { padding: 12, flex: 1, paddingBottom: 62 + 16 },
   page: {
+    flex: 1,
     backgroundColor: colors.page,
     borderRadius: 24,
     padding: 18,
@@ -309,6 +329,12 @@ const styles = StyleSheet.create({
     color: colors.gradientRight,
     fontSize: 12,
     marginTop: 2,
+  },
+  pinnedPanel: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   continueButton: {
     backgroundColor: colors.card,

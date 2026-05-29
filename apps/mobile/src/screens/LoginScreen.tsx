@@ -52,8 +52,6 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
       const data = await res.json();
 
-      console.log("Is new user?", data.isNewUser);
-
       if (!res.ok) {
         throw new Error(data.error || "Failed to sync user");
       }
@@ -64,6 +62,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           email: decoded.email,
           picture: decoded.picture,
           sub: decoded.sub,
+          role: data.user.role,
         },
         credentials.idToken,
         data.isNewUser

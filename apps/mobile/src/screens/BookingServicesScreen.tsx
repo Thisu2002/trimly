@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
@@ -24,6 +21,7 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
   const { salonId } = route.params;
   const [salon, setSalon] = useState<SalonDetail | null>(null);
   const [selected, setSelected] = useState<ServiceItem[]>([]);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     (async () => {
@@ -75,14 +73,23 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
       style={{ flex: 1 }}
     >
       <SafeAreaView style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.outer}>
+        <View style={styles.outer}>
           <View style={styles.page}>
-            <Text style={styles.title}>{salon.name}</Text>
-            <Text style={styles.meta}>{salon.address || "-"}</Text>
-            <Text style={styles.openText}>Open till 18:00</Text>
-            <Text style={styles.rating}>⭐⭐⭐⭐☆</Text>
+            {/* ── Compact header (not scrollable) ── */}
+            <View style={styles.header}>
+              <Text style={styles.title} numberOfLines={1}>
+                {salon.name}
+              </Text>
+              <View style={styles.headerMeta}>
+                <Text style={styles.metaAddress} numberOfLines={1}>
+                  {salon.address || "-"}
+                </Text>
+                <View style={styles.metaDot} />
+                <Text style={styles.metaOpen}>Open till 18:00</Text>
+              </View>
+            </View>
 
-            {/* Step Progress */}
+            {/* ── Step progress (not scrollable) ── */}
             <View style={styles.stepRow}>
               {STEPS.map((step, i) => {
                 const isCompleted = i < CURRENT_STEP;
@@ -104,7 +111,6 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
                         isActive && styles.stepDotActive,
                       ]}
                     >
-                      {/* {isCompleted && <Text style={styles.stepCheck}>✓</Text>} */}
                       {isActive && <View style={styles.stepDotInner} />}
                     </View>
                     <Text
@@ -121,100 +127,162 @@ export default function BookingServicesScreen({ route, navigation }: Props) {
               })}
             </View>
 
-            {salon.categories.map((category) => (
-              <View key={category.id} style={{ marginBottom: 16 }}>
-                <Text style={styles.sectionTitle}>{category.name}</Text>
-                {category.services.map((service) => {
-                  const active = isSelected(service.id);
-                  return (
-                    <Pressable
-                      key={service.id}
-                      style={[styles.item, active && styles.itemSelected]}
-                      onPress={() => toggleService(service)}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.itemTitle}>{service.name}</Text>
-                        <Text style={styles.itemDesc}>
-                          {service.description || "Professional service"}
-                        </Text>
-                        <Text style={styles.itemMeta}>
-                          {service.durationMin} min | LKR {service.priceLkr}
-                        </Text>
-                      </View>
-                      <Text style={styles.icon}>{active ? "✓" : "+"}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ))}
-
-            <View style={styles.summary}>
-              <Text style={styles.summaryHint}>Selected services order</Text>
-              {selected.map((service, index) => (
-                <View key={service.id} style={styles.summaryCard}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.summaryServiceTitle}>
-                      {service.sequence}. {service.name}
-                    </Text>
-                    <Text style={styles.summaryPrice}>LKR {service.priceLkr}</Text>
-                  </View>
-                  <View style={styles.orderButtons}>
-                    <Pressable style={styles.orderButton} onPress={() => moveUp(index)}>
-                      <Text style={styles.orderButtonText}>↑</Text>
-                    </Pressable>
-                    <Pressable style={styles.orderButton} onPress={() => moveDown(index)}>
-                      <Text style={styles.orderButtonText}>↓</Text>
-                    </Pressable>
-                  </View>
+            {/* ── Scrollable services list ── */}
+            <ScrollView
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ paddingBottom: 12 }}
+            >
+              {salon.categories.map((category) => (
+                <View key={category.id} style={{ marginBottom: 14 }}>
+                  <Text style={styles.sectionTitle}>{category.name}</Text>
+                  {category.services.map((service) => {
+                    const active = isSelected(service.id);
+                    return (
+                      <Pressable
+                        key={service.id}
+                        style={[styles.item, active && styles.itemSelected]}
+                        onPress={() => toggleService(service)}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.itemTitle}>{service.name}</Text>
+                          <Text style={styles.itemDesc}>
+                            {service.description || "Professional service"}
+                          </Text>
+                          <Text style={styles.itemMeta}>
+                            {service.durationMin} min · LKR {service.priceLkr}
+                          </Text>
+                        </View>
+                        <Text style={styles.icon}>{active ? "✓" : "+"}</Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               ))}
-              <View style={styles.divider} />
-              <View style={styles.summaryRow}>
-                <Text style={{ fontWeight: "700", color: colors.text }}>Total</Text>
-                <Text style={{ fontWeight: "700", color: colors.text }}>LKR {total}</Text>
+            </ScrollView>
+
+            {/* ── Pinned bottom panel ── */}
+            <View style={styles.pinnedPanel}>
+              {selected.length > 0 && (
+                <>
+                  <Text style={styles.summaryHint}>Selected order</Text>
+                  {selected.map((service, index) => (
+                    <View key={service.id} style={styles.summaryCard}>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={styles.summaryServiceTitle}
+                          numberOfLines={1}
+                        >
+                          {service.sequence}. {service.name}
+                        </Text>
+                        <Text style={styles.summaryPrice}>
+                          LKR {service.priceLkr}
+                        </Text>
+                      </View>
+                      <View style={styles.orderButtons}>
+                        <Pressable
+                          style={styles.orderButton}
+                          onPress={() => moveUp(index)}
+                        >
+                          <Text style={styles.orderButtonText}>↑</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.orderButton}
+                          onPress={() => moveDown(index)}
+                        >
+                          <Text style={styles.orderButtonText}>↓</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+
+              <View style={styles.totalAndContinue}>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Total</Text>
+                  <Text style={styles.totalValue}>LKR {total}</Text>
+                </View>
+                <Pressable
+                  disabled={!selected.length}
+                  style={[
+                    styles.continueButton,
+                    !selected.length && { opacity: 0.5 },
+                  ]}
+                  onPress={() =>
+                    navigation.navigate("BookingDateTime", {
+                      salonId,
+                      salonName: salon.name,
+                      selectedServices: selected,
+                    })
+                  }
+                >
+                  <Text style={styles.continueButtonText}>Continue →</Text>
+                </Pressable>
               </View>
             </View>
-
-            <Pressable
-              disabled={!selected.length}
-              style={[styles.continueButton, !selected.length && { opacity: 0.5 }]}
-              onPress={() =>
-                navigation.navigate("BookingDateTime", {
-                  salonId,
-                  salonName: salon.name,
-                  selectedServices: selected,
-                })
-              }
-            >
-              <Text style={styles.continueButtonText}>Continue →</Text>
-            </Pressable>
           </View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  outer: { padding: 12 },
+  outer: {
+    flex: 1,
+    padding: 12,
+    paddingBottom: 62 + 16,
+  },
   page: {
+    flex: 1,
     backgroundColor: colors.page,
     borderRadius: 24,
-    padding: 18,
+    paddingTop: 16,
+    paddingHorizontal: 18,
+    paddingBottom: 0,
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    overflow: "hidden",
   },
-  title: { fontSize: 28, fontWeight: "800", color: colors.text },
-  meta: { color: colors.textSoft, marginTop: 4 },
-  openText: { color: colors.accent, marginTop: 2 },
-  rating: { color: colors.star, marginTop: 4, marginBottom: 20 },
 
-  // Step progress
+  // ── Compact header ──
+  header: {
+    marginBottom: 14,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: 4,
+  },
+  headerMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  metaAddress: {
+    color: colors.textSoft,
+    fontSize: 12,
+    flex: 1,
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.textMuted,
+  },
+  metaOpen: {
+    color: colors.accent,
+    fontSize: 12,
+  },
+
+  // ── Step progress ──
   stepRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 24,
+    marginBottom: 16,
   },
   stepItem: {
     flex: 1,
@@ -243,7 +311,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   stepDotActive: {
     borderColor: colors.primary,
@@ -276,17 +344,20 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 
+  // ── Service list ──
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "700",
     marginBottom: 8,
-    color: colors.text,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   item: {
     backgroundColor: colors.card,
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    padding: 11,
+    marginBottom: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -296,64 +367,86 @@ const styles = StyleSheet.create({
   itemSelected: {
     borderColor: colors.primaryLight,
   },
-  itemTitle: { fontWeight: "700", color: colors.text },
-  itemDesc: { fontSize: 12, color: colors.textSoft, marginTop: 4 },
-  itemMeta: { fontSize: 12, color: colors.textSoft, marginTop: 4 },
+  itemTitle: { fontWeight: "700", color: colors.text, fontSize: 13 },
+  itemDesc: { fontSize: 11, color: colors.textSoft, marginTop: 2 },
+  itemMeta: { fontSize: 11, color: colors.textSoft, marginTop: 2 },
   icon: { fontSize: 18, fontWeight: "700", color: colors.text },
-  summary: {
+
+  // ── Pinned panel ──
+  pinnedPanel: {
+    backgroundColor: "rgba(6, 12, 22, 0.95)",
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: 12,
-    paddingTop: 14,
+    borderTopColor: colors.primary,
+    paddingTop: 10,
+    paddingBottom: 10,
+    marginHorizontal: -18,
+    paddingHorizontal: 18,
   },
   summaryHint: {
-    fontStyle: "italic",
-    color: colors.textSoft,
-    marginBottom: 12,
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 6,
   },
   summaryCard: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: colors.cardSoft,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
   summaryServiceTitle: {
     color: colors.text,
     fontWeight: "700",
+    fontSize: 12,
   },
   summaryPrice: {
     color: colors.textSoft,
-    marginTop: 4,
+    fontSize: 11,
+    marginTop: 2,
   },
-  orderButtons: { gap: 8 },
+  orderButtons: { flexDirection: "row", gap: 6 },
   orderButton: {
     backgroundColor: colors.chip,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
   },
-  orderButtonText: { color: colors.text, fontWeight: "700" },
-  summaryRow: {
+  orderButtonText: { color: colors.text, fontWeight: "700", fontSize: 13 },
+
+  totalAndContinue: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
+    alignItems: "center",
+    gap: 12,
+    marginTop: 3,
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 6,
+  totalRow: {
+    flex: 1,
+  },
+  totalLabel: {
+    fontSize: 10,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.text,
   },
   continueButton: {
+    flex: 2,
     backgroundColor: colors.card,
     borderRadius: 999,
-    paddingVertical: 14,
+    paddingVertical: 13,
     alignItems: "center",
-    marginTop: 12,
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
