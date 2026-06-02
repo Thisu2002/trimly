@@ -19,7 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { API_BASE_URL } from "../config/api";
 
 type Props = {
-onLoginSuccess: (user: AuthUser, idToken: string, isNewUser: boolean) => void;
+  onLoginSuccess: (user: AuthUser, idToken: string, isNewUser: boolean) => void;
 };
 
 type IdTokenPayload = {
@@ -65,7 +65,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           role: data.user.role,
         },
         credentials.idToken,
-        data.isNewUser
+        data.isNewUser,
       );
     } catch (error) {
       console.log("Login error:", error);
@@ -76,15 +76,32 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
   function ShineOverlay() {
     const translateX = useRef(new Animated.Value(-220)).current;
+    const opacity = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-      Animated.timing(translateX, {
-        toValue: 220,
-        duration: 900,
-        delay: 400,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }).start();
+      Animated.sequence([
+        // fade in quickly
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+
+        // move across
+        Animated.timing(translateX, {
+          toValue: 220,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+
+        // fade out after pass
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 60,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }, []);
 
     return (
@@ -97,15 +114,21 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           width: 220,
           height: 220,
           overflow: "hidden",
+          opacity,
           transform: [{ translateX }],
         }}
       >
-        <View
+        <LinearGradient
+          colors={[
+            "rgba(255,255,255,0)",
+            "rgba(171,213,255,0.35)",
+            "rgba(255,255,255,0)",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
           style={{
-            width: 60,
+            width: 70,
             height: 220,
-            backgroundColor: "#abd5ff",
-            opacity: 0.18,
             transform: [{ skewX: "-20deg" }],
           }}
         />

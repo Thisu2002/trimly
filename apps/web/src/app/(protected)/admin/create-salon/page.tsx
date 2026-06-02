@@ -1,7 +1,7 @@
 // D:\trimly\apps\web\src\app\(protected)\admin\create-salon\page.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAccessToken } from "@auth0/nextjs-auth0";
 import { toast } from "sonner";
@@ -13,9 +13,37 @@ export default function CreateSalonPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [about, setAbout] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Location
+  const [latitude, setLatitude] = useState<number | "">("");
+  const [longitude, setLongitude] = useState<number | "">("");
+  const [locating, setLocating] = useState(false);
+
+  // Auto-detect location on mount
+  useEffect(() => {
+    detectLocation();
+  }, []);
+
+  async function detectLocation() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(parseFloat(pos.coords.latitude.toFixed(6)));
+        setLongitude(parseFloat(pos.coords.longitude.toFixed(6)));
+        setLocating(false);
+      },
+      () => {
+        // Permission denied or unavailable — user can enter manually
+        setLocating(false);
+      },
+      { timeout: 8000 },
+    );
+  }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -44,17 +72,18 @@ export default function CreateSalonPage() {
       const token = await getAccessToken();
       const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
-      // Use FormData — not JSON — so files can be sent
       const formData = new FormData();
       formData.append("idToken", token);
       formData.append("name", name);
       formData.append("phone", phone);
       formData.append("address", address);
+      formData.append("about", about);
+      if (latitude !== "") formData.append("latitude", String(latitude));
+      if (longitude !== "") formData.append("longitude", String(longitude));
       photos.forEach((file) => formData.append("photos", file));
 
       const res = await fetch(`${apiBase}/api/salon`, {
         method: "POST",
-        // Do NOT set Content-Type manually; the browser sets it with the boundary
         body: formData,
       });
 
@@ -94,19 +123,67 @@ export default function CreateSalonPage() {
           onChange={(e) => setPhone(e.target.value)}
         />
         <input
-          className="w-full mb-4 p-2 rounded bg-gray-800"
+          className="w-full mb-3 p-2 rounded bg-gray-800"
           placeholder="Address"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
         />
+        <textarea
+          className="w-full mb-4 p-2 rounded bg-gray-800"
+          placeholder="About"
+          value={about}
+          onChange={(e) => setAbout(e.target.value)}
+        />
+
+        {/* Location */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm text-gray-400">
+              Location (for nearby search)
+            </label>
+            <button
+              type="button"
+              onClick={detectLocation}
+              disabled={locating}
+              className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-50"
+            >
+              {locating ? "Detecting…" : "📍 Auto-detect"}
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              className="w-full p-2 rounded bg-gray-800 text-sm"
+              placeholder="Latitude"
+              type="number"
+              step="any"
+              value={latitude}
+              onChange={(e) =>
+                setLatitude(e.target.value === "" ? "" : parseFloat(e.target.value))
+              }
+            />
+            <input
+              className="w-full p-2 rounded bg-gray-800 text-sm"
+              placeholder="Longitude"
+              type="number"
+              step="any"
+              value={longitude}
+              onChange={(e) =>
+                setLongitude(e.target.value === "" ? "" : parseFloat(e.target.value))
+              }
+            />
+          </div>
+          {latitude !== "" && longitude !== "" && (
+            <p className="text-xs text-gray-500 mt-1">
+              📍 {latitude}, {longitude}
+            </p>
+          )}
+        </div>
 
         {/* Photo upload */}
         <div className="mb-4">
           <label className="block text-sm text-gray-400 mb-2">
             Salon Photos (up to 5)
           </label>
-
-          {/* Previews */}
           {previews.length > 0 && (
             <div className="grid grid-cols-3 gap-2 mb-3">
               {previews.map((src, i) => (
@@ -129,7 +206,6 @@ export default function CreateSalonPage() {
               ))}
             </div>
           )}
-
           {photos.length < 5 && (
             <label className="flex items-center justify-center w-full h-10 border border-dashed border-gray-600 rounded cursor-pointer hover:border-gray-400 transition">
               <span className="text-sm text-gray-400">+ Add photos</span>

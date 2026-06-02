@@ -1,6 +1,7 @@
 //D:\trimly\services\api\src\routes\mobile.ts
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
+import { Prisma } from "@prisma/client";
 import { verifyIdToken } from "../lib/auth";
 import {
   buildServiceSegments,
@@ -13,166 +14,119 @@ import md5 from "md5";
 
 const router = Router();
 
-// router.get("/salons", async (req, res) => {
-//   try {
-//     const q = String(req.query.q || "").trim();
-
-//     const salons = await prisma.salon.findMany({
-//       where: q
-//         ? {
-//             OR: [
-//               { name: { contains: q, mode: "insensitive" } },
-//               { address: { contains: q, mode: "insensitive" } },
-//             ],
-//           }
-//         : undefined,
-//       include: {
-//         services: true,
-//         stylists: {
-//           include: {
-//             user: true,
-//           },
-//         },
-//       },
-//       orderBy: { createdAt: "desc" },
-//     });
-
-//     const result = salons.map((salon) => ({
-//       id: salon.id,
-//       name: salon.name,
-//       address: salon.address,
-//       phone: salon.phone,
-//       rating: 4.0,
-//       reviewCount: 28,
-//       serviceCount: salon.services.length,
-//       stylistCount: salon.stylists.length,
-//       photos: salon.photos || [],
-//     }));
-
-//     return res.json({ salons: result });
-//   } catch (error) {
-//     console.error("Get salons error:", error);
-//     return res.status(500).json({ error: "Failed to fetch salons" });
-//   }
-// });
-
-// router.get("/salons/:salonId", async (req, res) => {
-//   try {
-//     const { salonId } = req.params;
-
-//     const salon = await prisma.salon.findUnique({
-//       where: { id: salonId },
-//       include: {
-//         businessHours: true,
-//         categories: {
-//           include: { services: true },
-//           orderBy: { name: "asc" },
-//         },
-//         stylists: {
-//           include: {
-//             user: true,
-//             services: {
-//               include: { service: true },
-//             },
-//           },
-//           orderBy: { createdAt: "asc" },
-//         },
-//       },
-//     });
-
-//     if (!salon) {
-//       return res.status(404).json({ error: "Salon not found" });
-//     }
-
-//     return res.json({
-//       salon: {
-//         id: salon.id,
-//         name: salon.name,
-//         address: salon.address,
-//         phone: salon.phone,
-//         about:
-//           "A modern salon experience with personalised treatments and professional stylists.",
-//         rating: 4.0,
-//         reviewCount: 28,
-//         photoSlots: 3,
-//         photos: salon.photos || [],
-//         businessHours: salon.businessHours,
-//         categories: salon.categories,
-//         stylists: salon.stylists.map((stylist) => ({
-//           id: stylist.id,
-//           name: stylist.user.name || stylist.user.email,
-//           bio: stylist.bio,
-//           yearsOfExperience: stylist.yearsOfExperience,
-//           status: stylist.status,
-//           services: stylist.services.map((x) => ({
-//             id: x.service.id,
-//             name: x.service.name,
-//           })),
-//         })),
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Get salon detail error:", error);
-//     return res.status(500).json({ error: "Failed to fetch salon details" });
-//   }
-// });
+function haversineKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 router.get("/salons", async (req, res) => {
   try {
-    const q = String(req.query.q || "").trim();
+    const q         = String(req.query.q         || "").trim();
+    const sortBy    = String(req.query.sortBy    || "newest") as "nearest" | "rating" | "newest";
+    const minRating = parseFloat(String(req.query.minRating || "0"));
+    const userLat   = req.query.lat ? parseFloat(String(req.query.lat)) : null;
+    const userLng   = req.query.lng ? parseFloat(String(req.query.lng)) : null;
+    const radiusKm  = req.query.radiusKm ? parseFloat(String(req.query.radiusKm)) : 50;
+    const page      = Math.max(1, parseInt(String(req.query.page  || "1"),  10));
+    const limit     = Math.min(50, Math.max(1, parseInt(String(req.query.limit || "20"), 10)));
+    const skip      = (page - 1) * limit;
+ 
+    const where: Prisma.SalonWhereInput = {};
+ 
+    if (q) {
+      where.OR = [
+        { name:    { contains: q, mode: "insensitive" } },
+        { address: { contains: q, mode: "insensitive" } },
+      ];
+    }
+ 
+    if (minRating > 0) {
+      where.avgRating = { gte: minRating };
+    }
+ 
+    const orderBy: Prisma.SalonOrderByWithRelationInput =
+      sortBy === "rating"
+        ? { avgRating: "desc" }
+        : { createdAt: "desc" };
 
+    const fetchAll = sortBy === "nearest" && userLat !== null && userLng !== null;
+ 
     const salons = await prisma.salon.findMany({
-      where: q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { address: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : undefined,
+      where,
       include: {
-        services: true,
-        stylists: {
-          include: {
-            user: true,
-          },
-        },
+        services: { select: { id: true } },
+        stylists: { select: { id: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
+      ...(fetchAll ? {} : { skip, take: limit }),
     });
-
-    // Aggregate real ratings in one query
-    const salonIds = salons.map((s) => s.id);
-    const ratingAggs = await prisma.appointmentReview.groupBy({
-      by: ["salonId"],
-      where: { salonId: { in: salonIds } },
-      _avg: { rating: true },
-      _count: { rating: true },
-    });
-
-    const ratingMap = new Map(
-      ratingAggs.map((r) => [
-        r.salonId,
-        { avg: r._avg.rating ?? 0, count: r._count.rating },
-      ])
-    );
-
-    const result = salons.map((salon) => {
-      const ratingData = ratingMap.get(salon.id);
+ 
+    type SalonRow = (typeof salons)[number];
+ 
+    const mapped = salons.map((salon: SalonRow) => {
+      const distanceKm =
+        userLat !== null &&
+        userLng !== null &&
+        salon.latitude != null &&
+        salon.longitude != null
+          ? parseFloat(
+              haversineKm(userLat, userLng, salon.latitude, salon.longitude).toFixed(1),
+            )
+          : null;
+ 
       return {
-        id: salon.id,
-        name: salon.name,
-        address: salon.address,
-        phone: salon.phone,
-        rating: ratingData ? parseFloat(ratingData.avg.toFixed(1)) : 0,
-        reviewCount: ratingData?.count ?? 0,
+        id:           salon.id,
+        name:         salon.name,
+        address:      salon.address,
+        phone:        salon.phone,
+        rating:       parseFloat((salon.avgRating ?? 0).toFixed(1)),
         serviceCount: salon.services.length,
         stylistCount: salon.stylists.length,
-        photos: salon.photos || [],
+        photos:       salon.photos || [],
+        distanceKm,
+        latitude:     salon.latitude,
+        longitude:    salon.longitude,
       };
     });
-
-    return res.json({ salons: result });
+ 
+    let result = mapped;
+ 
+    if (fetchAll) {
+      result = mapped
+        .filter((s) => s.distanceKm === null || s.distanceKm <= radiusKm)
+        .sort((a, b) => {
+          if (a.distanceKm === null) return 1;
+          if (b.distanceKm === null) return -1;
+          return a.distanceKm - b.distanceKm;
+        })
+        .slice(skip, skip + limit);
+    }
+ 
+    const total = fetchAll
+      ? mapped.filter((s) => s.distanceKm === null || s.distanceKm <= radiusKm).length
+      : await prisma.salon.count({ where });
+ 
+    return res.json({
+      salons: result,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error("Get salons error:", error);
     return res.status(500).json({ error: "Failed to fetch salons" });
@@ -232,8 +186,7 @@ router.get("/salons/:salonId", async (req, res) => {
         name: salon.name,
         address: salon.address,
         phone: salon.phone,
-        about:
-          "A modern salon experience with personalised treatments and professional stylists.",
+        about: salon.about,
         rating: ratingAgg._avg.rating
           ? parseFloat(ratingAgg._avg.rating.toFixed(1))
           : 0,
@@ -300,12 +253,49 @@ router.post("/slots", async (req, res) => {
       hours.slotDuration,
     );
 
-    const slots = rawSlots.map((startTime) => ({
+    const now = new Date();
+
+    // local yyyy-mm-dd
+    const today =
+      now.getFullYear() +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
+
+    let filteredSlots = rawSlots;
+
+    if (date === today) {
+      const currentMinutes =
+        now.getHours() * 60 + now.getMinutes();
+
+      filteredSlots = rawSlots.filter((slot) => {
+        // slot format example: "14:30"
+
+        const [hours, minutes] = slot
+          .split(":")
+          .map(Number);
+
+        const slotMinutes = hours * 60 + minutes;
+
+        // optional 5 min buffer
+        return slotMinutes > currentMinutes + 5;
+      });
+    }
+
+    const slots = filteredSlots.map((startTime) => ({
       startTime,
       endTime: startTime,
       disabled: false,
       salonBusy: false,
     }));
+
+    // const slots = rawSlots.map((startTime) => ({
+    //   startTime,
+    //   endTime: startTime,
+    //   disabled: false,
+    //   salonBusy: false,
+    // }));
 
     return res.json({
       slotDuration: hours.slotDuration,

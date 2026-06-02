@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "../../apps/mobile/src/utils/stars.tsx"]
+  "include": ["src/**/*"]
 }

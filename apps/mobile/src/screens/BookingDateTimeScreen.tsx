@@ -23,6 +23,16 @@ type Props = NativeStackScreenProps<RootStackParamList, "BookingDateTime">;
 const STEPS = ["Services", "Date & Time", "Stylist", "Confirm"];
 const CURRENT_STEP = 1; // 0-indexed
 
+function formatLocalDate(date: Date) {
+  return (
+    date.getFullYear() +
+    "-" +
+    String(date.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(date.getDate()).padStart(2, "0")
+  );
+}
+
 function next7Days() {
   const result: { iso: string; label: string; day: string }[] = [];
   const d = new Date();
@@ -46,7 +56,7 @@ function next7Days() {
     const x = new Date(d);
     x.setDate(d.getDate() + i);
     result.push({
-      iso: x.toISOString().slice(0, 10),
+      iso: formatLocalDate(x),
       day: i === 0 ? "Today" : dayNames[x.getDay()],
       label: `${x.getDate()} ${monthNames[x.getMonth()]}`,
     });

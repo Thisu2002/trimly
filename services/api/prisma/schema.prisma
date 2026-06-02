@@ -42,6 +42,7 @@ model User {
   email     String   @unique
   phone     String?
   address   String?
+  photo     String?
   role      Role
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -63,7 +64,6 @@ model Customer {
   pendingPayments PendingPayment[]
   reviews AppointmentReview[]
 
-  // Loyalty — one row per salon the customer has points with
   loyaltyPoints CustomerPoints[]
   redemptions   RewardRedemption[]
   transactions PointsTransaction[]
@@ -106,9 +106,13 @@ model UserFacePhotos {
 model Salon {
   id          String  @id @default(uuid())
   name        String
+  about       String?
   phone       String?
   address     String?
   photos      String[] @default([])
+  latitude   Float?
+  longitude  Float?
+  avgRating  Float  @default(0) 
 
   adminUserId String @unique
   admin       User   @relation("SalonAdmin", fields: [adminUserId], references: [id], onDelete: Cascade)
@@ -309,7 +313,7 @@ model AppointmentReview {
   salonId       String
   salon         Salon       @relation(fields: [salonId], references: [id], onDelete: Cascade)
 
-  rating    Int    // 1–5
+  rating    Int
   comment   String?
 
   pointsAwarded Boolean @default(false)
@@ -352,8 +356,6 @@ model PendingPayment {
 
   createdAt DateTime @default(now())
 }
-
-// ─── Loyalty ──────────────────────────────────────────────────────────────────
 
 model LoyaltyProgram {
   id      String @id @default(uuid())
@@ -428,14 +430,11 @@ model LoyaltyReward {
   @@index([programId])
 }
 
-// Per-customer, per-salon points balance
-// A customer gets one row per salon they have points with
 model CustomerPoints {
   id         String @id @default(uuid())
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  // Which salon's program these points belong to
   programId  String
   program    LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
 
@@ -447,7 +446,6 @@ model CustomerPoints {
 
   updatedAt DateTime @updatedAt
 
-  // One balance per customer per salon program
   @@unique([customerId, programId])
   @@index([customerId])
   @@index([programId])
@@ -474,10 +472,9 @@ model PointsTransaction {
   programId  String
   program    LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
 
-  action      String   // matches LoyaltyRule.action, or "reward_redeemed"
-  label       String   // human-readable label
-  points      Int      // positive = earned, negative = spent
-  // Optional references for traceability
+  action      String
+  label       String
+  points      Int
   appointmentId String?
   reviewId      String?
   redemptionId  String?

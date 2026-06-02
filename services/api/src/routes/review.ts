@@ -6,6 +6,21 @@ import { awardPoints } from "../lib/awardPoints";
 
 const router = Router();
 
+// ─── Helper: recalculate and persist avgRating on the Salon row ───────────────
+// Called after any review is created or deleted so the denormalized field
+// used by the /salons listing for sort/filter is always accurate.
+async function syncSalonAvgRating(salonId: string) {
+  const agg = await prisma.appointmentReview.aggregate({
+    where: { salonId },
+    _avg: { rating: true },
+  });
+  await prisma.salon.update({
+    where: { id: salonId },
+    data: { avgRating: agg._avg.rating ?? 0 },
+  });
+}
+
+// ─── GET /api/review/check/:appointmentId ─────────────────────────────────────
 router.get("/check/:appointmentId", async (req, res) => {
   try {
     const { appointmentId } = req.params;
@@ -24,6 +39,7 @@ router.get("/check/:appointmentId", async (req, res) => {
   }
 });
 
+// ─── POST /api/review/batch-check ────────────────────────────────────────────
 router.post("/batch-check", async (req, res) => {
   try {
     const { appointmentIds } = req.body as { appointmentIds?: string[] };
@@ -48,6 +64,7 @@ router.post("/batch-check", async (req, res) => {
   }
 });
 
+// ─── POST /api/review ─────────────────────────────────────────────────────────
 router.post("/", async (req, res) => {
   try {
     const { userSub, appointmentId, rating, comment } = req.body as {
@@ -57,7 +74,7 @@ router.post("/", async (req, res) => {
       comment?: string;
     };
 
-    if (!userSub) return res.status(401).json({ error: "Missing userSub" });
+    if (!userSub)      return res.status(401).json({ error: "Missing userSub" });
     if (!appointmentId) return res.status(400).json({ error: "Missing appointmentId" });
     if (typeof rating !== "number" || rating < 1 || rating > 5) {
       return res.status(400).json({ error: "Rating must be 1–5" });
@@ -73,9 +90,9 @@ router.post("/", async (req, res) => {
     const customerId = user.customerProfile.id;
 
     const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
-    if (!appointment) return res.status(404).json({ error: "Appointment not found" });
+    if (!appointment)                          return res.status(404).json({ error: "Appointment not found" });
     if (appointment.customerId !== customerId) return res.status(403).json({ error: "Not your appointment" });
-    if (appointment.status !== "completed") return res.status(400).json({ error: "Can only review completed appointments" });
+    if (appointment.status !== "completed")    return res.status(400).json({ error: "Can only review completed appointments" });
 
     const existing = await prisma.appointmentReview.findUnique({ where: { appointmentId } });
     if (existing) return res.status(409).json({ error: "Already reviewed", review: existing });
@@ -91,6 +108,14 @@ router.post("/", async (req, res) => {
       },
     });
 
+    // ── Keep avgRating in sync ────────────────────────────────────────────────
+    // Fire-and-forget: non-fatal if it fails, listing will self-correct next
+    // time but in practice this keeps the value current immediately.
+    syncSalonAvgRating(appointment.salonId).catch((err) =>
+      console.error("syncSalonAvgRating failed (non-fatal):", err),
+    );
+
+    // ── Loyalty points ────────────────────────────────────────────────────────
     let pointsResult = null;
     try {
       const updated = await prisma.appointmentReview.updateMany({
@@ -115,10 +140,10 @@ router.post("/", async (req, res) => {
       review: { id: review.id, rating: review.rating, comment: review.comment },
       loyalty: pointsResult
         ? {
-            pointsAdded: pointsResult.pointsAdded,
-            newTotal: pointsResult.newTotal,
-            tierChanged: pointsResult.tierChanged,
-            newTierName: pointsResult.newTierName,
+            pointsAdded:  pointsResult.pointsAdded,
+            newTotal:     pointsResult.newTotal,
+            tierChanged:  pointsResult.tierChanged,
+            newTierName:  pointsResult.newTierName,
           }
         : null,
     });
@@ -128,6 +153,7 @@ router.post("/", async (req, res) => {
   }
 });
 
+// ─── GET /api/review/salon ───────────────────────────────────────────────────
 router.get("/salon", async (req, res) => {
   try {
     const { userSub } = req.query as { userSub?: string };
@@ -150,13 +176,13 @@ router.get("/salon", async (req, res) => {
 
     res.json(
       reviews.map((r) => ({
-        id: r.id,
-        customerName: r.customer.user.name,
-        rating: r.rating,
-        comment: r.comment,
+        id:              r.id,
+        customerName:    r.customer.user.name,
+        rating:          r.rating,
+        comment:         r.comment,
         appointmentDate: r.appointment.date,
-        createdAt: r.createdAt,
-      }))
+        createdAt:       r.createdAt,
+      })),
     );
   } catch (err) {
     console.error(err);

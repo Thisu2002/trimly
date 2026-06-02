@@ -212,7 +212,7 @@ export default function SalonDetailScreen({ route, navigation }: Props) {
             {tab === "about" && (
               <View>
                 <Text style={styles.sectionTitle}>About</Text>
-                <Text style={styles.aboutText}>{salon.about}</Text>
+                <Text style={styles.aboutText}>{salon.about? salon.about : " No information available."}</Text>
               </View>
             )}
 

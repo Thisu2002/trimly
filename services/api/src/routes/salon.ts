@@ -29,11 +29,21 @@ const upload = multer({
   },
 });
 
-// POST /api/salon  (create)
+// ─── Helper: parse optional float from multipart string field ─────────────────
+function parseOptionalFloat(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const n = parseFloat(String(value));
+  return isNaN(n) ? undefined : n;
+}
+
+// ─── POST /api/salon  (create) ────────────────────────────────────────────────
 router.post("/", upload.array("photos", 5), async (req, res) => {
   try {
-    const { idToken, name, phone, address } = req.body;
+    const { idToken, name, phone, address, about } = req.body;
     if (!idToken) return res.status(401).json({ error: "Missing token" });
+
+    const latitude  = parseOptionalFloat(req.body.latitude);
+    const longitude = parseOptionalFloat(req.body.longitude);
 
     const payload = await verifyIdToken(idToken);
     const sub = String(payload.sub);
@@ -43,16 +53,27 @@ router.post("/", upload.array("photos", 5), async (req, res) => {
       include: { adminSalon: true },
     });
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user)            return res.status(404).json({ error: "User not found" });
     if (user.role !== "admin") return res.status(403).json({ error: "Not an admin" });
-    if (user.adminSalon) return res.status(400).json({ error: "Salon already exists" });
+    if (user.adminSalon)  return res.status(400).json({ error: "Salon already exists" });
 
     const apiBase = process.env.API_BASE_URL || "http://localhost:4000";
     const files = (req.files as Express.Multer.File[]) ?? [];
     const photoUrls = files.map((f) => `${apiBase}/uploads/salons/${f.filename}`);
 
     const salon = await prisma.salon.create({
-      data: { name, phone, address, adminUserId: user.id, photos: photoUrls },
+      data: {
+        name,
+        phone,
+        address,
+        about,
+        adminUserId: user.id,
+        photos: photoUrls,
+        // Only set coordinates if provided — null otherwise (salons without
+        // location are simply excluded from "nearest" sort results)
+        ...(latitude  !== undefined && { latitude }),
+        ...(longitude !== undefined && { longitude }),
+      },
     });
 
     res.json(salon);
@@ -62,7 +83,7 @@ router.post("/", upload.array("photos", 5), async (req, res) => {
   }
 });
 
-// GET /api/salon/me  (fetch the admin's own salon)
+// ─── GET /api/salon/me ────────────────────────────────────────────────────────
 router.get("/me", async (req, res) => {
   try {
     const idToken = req.query.idToken as string;
@@ -73,12 +94,10 @@ router.get("/me", async (req, res) => {
 
     const user = await prisma.user.findUnique({
       where: { auth0Sub: sub },
-      include: {
-        adminSalon: true,
-      },
+      include: { adminSalon: true },
     });
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user)           return res.status(404).json({ error: "User not found" });
     if (!user.adminSalon) return res.status(404).json({ error: "No salon found" });
 
     res.json(user.adminSalon);
@@ -88,11 +107,14 @@ router.get("/me", async (req, res) => {
   }
 });
 
-// PATCH /api/salon/me  (update name / phone / address / photos)
+// ─── PATCH /api/salon/me ──────────────────────────────────────────────────────
 router.patch("/me", upload.array("newPhotos", 5), async (req, res) => {
   try {
-    const { idToken, name, phone, address, keepPhotos } = req.body;
+    const { idToken, name, phone, address, about, keepPhotos } = req.body;
     if (!idToken) return res.status(401).json({ error: "Missing token" });
+
+    const latitude  = parseOptionalFloat(req.body.latitude);
+    const longitude = parseOptionalFloat(req.body.longitude);
 
     const payload = await verifyIdToken(idToken);
     const sub = String(payload.sub);
@@ -102,9 +124,9 @@ router.patch("/me", upload.array("newPhotos", 5), async (req, res) => {
       include: { adminSalon: true },
     });
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user)             return res.status(404).json({ error: "User not found" });
     if (user.role !== "admin") return res.status(403).json({ error: "Not an admin" });
-    if (!user.adminSalon) return res.status(404).json({ error: "No salon found" });
+    if (!user.adminSalon)  return res.status(404).json({ error: "No salon found" });
 
     let kept: string[] = [];
     try {
@@ -114,24 +136,31 @@ router.patch("/me", upload.array("newPhotos", 5), async (req, res) => {
     }
 
     const existing = user.adminSalon.photos as string[];
-    const removed = existing.filter((url) => !kept.includes(url));
+    const removed  = existing.filter((url) => !kept.includes(url));
     for (const url of removed) {
       const filename = url.split("/uploads/salons/")[1];
       if (filename) {
         const filePath = path.join(__dirname, "../../uploads/salons", filename);
-        fs.unlink(filePath, () => {}); // best-effort
+        fs.unlink(filePath, () => {});
       }
     }
 
     const apiBase = process.env.API_BASE_URL || "http://localhost:4000";
     const newFiles = (req.files as Express.Multer.File[]) ?? [];
-    const newUrls = newFiles.map((f) => `${apiBase}/uploads/salons/${f.filename}`);
-
-    const photos = [...kept, ...newUrls].slice(0, 5);
+    const newUrls  = newFiles.map((f) => `${apiBase}/uploads/salons/${f.filename}`);
+    const photos   = [...kept, ...newUrls].slice(0, 5);
 
     const salon = await prisma.salon.update({
       where: { id: user.adminSalon.id },
-      data: { name, phone, address, photos },
+      data: {
+        name,
+        phone,
+        address,
+        about,
+        photos,
+        ...(latitude  !== undefined && { latitude }),
+        ...(longitude !== undefined && { longitude }),
+      },
     });
 
     res.json(salon);
