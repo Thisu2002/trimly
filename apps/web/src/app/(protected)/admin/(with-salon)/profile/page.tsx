@@ -28,7 +28,6 @@ export default function SalonProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // edit state
   const [name, setName]       = useState("");
   const [phone, setPhone]     = useState("");
   const [address, setAddress] = useState("");
@@ -37,7 +36,6 @@ export default function SalonProfilePage() {
   const [longitude, setLongitude] = useState<number | "">("");
   const [locating, setLocating]   = useState(false);
 
-  // photos
   const [keepPhotos,   setKeepPhotos]   = useState<string[]>([]);
   const [newFiles,     setNewFiles]     = useState<File[]>([]);
   const [newPreviews,  setNewPreviews]  = useState<string[]>([]);
@@ -452,12 +450,12 @@ export default function SalonProfilePage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard title="Total Services" value="—" />
         <StatCard title="Total Staff"    value="—" />
         <StatCard title="Appointments"  value="—" />
         <StatCard title="Avg Rating"    value={salon.avgRating > 0 ? salon.avgRating.toFixed(1) : "—"} />
-      </div>
+      </div> */}
     </div>
   );
 }
@@ -484,11 +482,11 @@ function DetailField({
   );
 }
 
-function StatCard({ title, value }: { title: string; value: string | number }) {
-  return (
-    <div className="rounded-xl border border-gray-700 bg-[#111827] p-5 text-center">
-      <div className="text-sm text-gray-400">{title}</div>
-      <div className="mt-2 text-2xl font-semibold">{value}</div>
-    </div>
-  );
-}
+// function StatCard({ title, value }: { title: string; value: string | number }) {
+//   return (
+//     <div className="rounded-xl border border-gray-700 bg-[#111827] p-5 text-center">
+//       <div className="text-sm text-gray-400">{title}</div>
+//       <div className="mt-2 text-2xl font-semibold">{value}</div>
+//     </div>
+//   );
+// }

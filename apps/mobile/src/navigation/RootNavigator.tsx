@@ -27,8 +27,6 @@ import { View, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useRef, RefObject } from "react";
 
-// ─── Param lists ──────────────────────────────────────────────────────────────
-
 export type RootStackParamList = {
   AuthGate: undefined;
   Login: undefined;
@@ -157,8 +155,6 @@ export type TabParamList = {
   ProfileTab: undefined;
 };
 
-// ─── Navigators ───────────────────────────────────────────────────────────────
-
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const SalonsStack = createNativeStackNavigator<SalonsStackParamList>();
@@ -173,13 +169,9 @@ type Props = {
   onLogout: () => void;
 };
 
-// ─── Tab bar background ───────────────────────────────────────────────────────
-
 function TabBarBackground() {
   return <View style={tabStyles.tabBarBg} />;
 }
-
-// ─── Home stack navigator ─────────────────────────────────────────────────────
 
 function HomeStackNavigator({
   user,
@@ -281,8 +273,6 @@ function HomeStackNavigator({
   );
 }
 
-// ─── Salons stack navigator ───────────────────────────────────────────────────
-
 function SalonsStackNavigator({
   idToken,
 }: {
@@ -316,8 +306,6 @@ function SalonsStackNavigator({
     </SalonsStack.Navigator>
   );
 }
-
-// ─── Main tab navigator ───────────────────────────────────────────────────────
 
 function MainTabs({
   user,
@@ -397,8 +385,6 @@ function MainTabs({
   );
 }
 
-// ─── Root navigator ───────────────────────────────────────────────────────────
-
 export default function RootNavigator({
   user,
   idToken,
@@ -470,8 +456,6 @@ export default function RootNavigator({
     </NavigationContainer>
   );
 }
-
-// ─── Tab bar styles ───────────────────────────────────────────────────────────
 
 const tabStyles = StyleSheet.create({
   tabBar: {

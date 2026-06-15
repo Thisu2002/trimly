@@ -1,3 +1,4 @@
+//D:\trimly\apps\mobile\src\screens\LoginScreen.tsx
 import { useState, useEffect, useRef } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import {
@@ -12,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { jwtDecode } from "jwt-decode";
-import { auth0 } from "../lib/auth";
+import { webAuth0Login } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,48 +32,41 @@ type IdTokenPayload = {
 
 export default function LoginScreen({ onLoginSuccess }: Props) {
   const [isLoading, setIsLoading] = useState(false);
-  async function handleLogin() {
-    try {
-      setIsLoading(true);
-      const credentials = await auth0.webAuth.authorize({
-        scope: "openid profile email",
-      });
+async function handleLogin() {
+  try {
+    setIsLoading(true);
+    const { idToken } = await webAuth0Login();
 
-      const decoded = jwtDecode<IdTokenPayload>(credentials.idToken);
+    if (!idToken) return;
 
-      const res = await fetch(`${API_BASE_URL}/api/auth`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          idToken: credentials.idToken,
-        }),
-      });
+    const decoded = jwtDecode<IdTokenPayload>(idToken);
 
-      const data = await res.json();
+    const res = await fetch(`${API_BASE_URL}/api/auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to sync user");
-      }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to sync user");
 
-      onLoginSuccess(
-        {
-          name: data.user.name,
-          email: decoded.email,
-          picture: decoded.picture,
-          sub: decoded.sub,
-          role: data.user.role,
-        },
-        credentials.idToken,
-        data.isNewUser,
-      );
-    } catch (error) {
-      console.log("Login error:", error);
-      Alert.alert("Login failed", "Could not complete login.");
-      setIsLoading(false);
-    }
+    onLoginSuccess(
+      {
+        name: data.user.name,
+        email: decoded.email,
+        picture: decoded.picture,
+        sub: decoded.sub,
+        role: data.user.role,
+      },
+      idToken,
+      data.isNewUser,
+    );
+  } catch (error) {
+    console.log("Login error:", error);
+    Alert.alert("Login failed", "Could not complete login.");
+    setIsLoading(false);
   }
+}
 
   function ShineOverlay() {
     const translateX = useRef(new Animated.Value(-220)).current;
@@ -80,14 +74,12 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
     useEffect(() => {
       Animated.sequence([
-        // fade in quickly
         Animated.timing(opacity, {
           toValue: 1,
           duration: 120,
           useNativeDriver: true,
         }),
 
-        // move across
         Animated.timing(translateX, {
           toValue: 220,
           duration: 900,
@@ -95,7 +87,6 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
           useNativeDriver: true,
         }),
 
-        // fade out after pass
         Animated.timing(opacity, {
           toValue: 0,
           duration: 60,

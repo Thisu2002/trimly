@@ -1,3 +1,45 @@
+type AppointmentStatus = "pending" | "confirmed" | "cancelled" | "completed";
+
+export interface RecentAppointment {
+  id: string;
+  customerName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  totalLkr: number;
+  status: AppointmentStatus;
+  services: { name: string; stylist: string }[];
+};
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  currentStock: number;
+  minStock: number;
+  unit: string;
+};
+
+export interface Stylist {
+  id: string;
+  status: "on_duty" | "on_leave";
+  user: { name: string };
+  services: { priceLkr: number }[];
+};
+
+export interface LoyaltyStats {
+  totalMembers: number;
+  activeMembers: number;
+  pointsIssued: number;
+  rewardsRedeemed: number;
+};
+
+export interface DashboardData {
+  appointments: RecentAppointment[];
+  inventoryItems: InventoryItem[];
+  stylists: Stylist[];
+  loyaltyStats: LoyaltyStats;
+};
+
 export interface LoyaltyTier {
   id: string;
   name: string;

@@ -157,10 +157,13 @@ router.get("/list", async (req, res) => {
           },
         },
         weeklyShifts: {
-  orderBy: {
-    dayOfWeek: "asc",
-  },
-},
+          orderBy: {
+            dayOfWeek: "asc",
+          },
+        },
+        _count: {
+          select: { appointmentServices: true },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -192,6 +195,7 @@ router.get("/list", async (req, res) => {
         endTime: shift.endTime,
         isOff: shift.isOff,
       })),
+      appointmentCount: stylist._count.appointmentServices,
     }));
 
     return res.json(formatted);
@@ -202,6 +206,8 @@ router.get("/list", async (req, res) => {
       .json({ error: err?.message || "Failed to fetch stylists" });
   }
 });
+
+// Replace the current GET /:id handler in stylist.ts
 
 router.get("/:id", async (req, res) => {
   try {
@@ -236,9 +242,7 @@ router.get("/:id", async (req, res) => {
       include: {
         user: true,
         services: {
-          include: {
-            service: true,
-          },
+          include: { service: true },
         },
         weeklyShifts: true,
       },
@@ -253,6 +257,7 @@ router.get("/:id", async (req, res) => {
       bio: stylist.bio,
       yearsOfExperience: stylist.yearsOfExperience,
       status: stylist.status,
+      createdAt: stylist.createdAt,
       user: {
         id: stylist.user.id,
         name: stylist.user.name,
@@ -263,6 +268,8 @@ router.get("/:id", async (req, res) => {
       services: stylist.services.map((item) => ({
         id: item.service.id,
         name: item.service.name,
+        durationMin: item.service.durationMin,
+        priceLkr: item.service.priceLkr,
       })),
       weeklyShifts: stylist.weeklyShifts.map((shift) => ({
         dayOfWeek: shift.dayOfWeek,

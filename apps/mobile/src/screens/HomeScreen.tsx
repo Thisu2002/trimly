@@ -78,15 +78,11 @@ type TrendingStyle = {
   serviceCount: number;
 };
 
-// ─── Tag color mapping ────────────────────────────────────────────────────────
-
 function tagColor(tag: string): string {
   if (tag === "Most Popular") return colors.star;
   if (tag === "Trending") return colors.accent;
   return colors.primaryLight;
 }
-
-// ─── Trending card ────────────────────────────────────────────────────────────
 
 const CARD_W = width * 0.38;
 const CARD_H = CARD_W * 1.35;
@@ -126,8 +122,6 @@ function TrendingCard({ item }: { item: TrendingStyle }) {
   );
 }
 
-// Trending skeleton (shown while loading)
-
 function TrendingSkeleton() {
   return (
     <View style={[trend.card, trend.skeleton]}>
@@ -135,8 +129,6 @@ function TrendingSkeleton() {
     </View>
   );
 }
-
-// ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function HomeScreen({
   user,
@@ -148,7 +140,6 @@ export default function HomeScreen({
   const bottomPad = 62 + insets.bottom + 12;
   const firstName = user?.name?.split(" ")[0] ?? "there";
 
-  // ── Trending styles state ──────────────────────────────────────────────────
   const [trendingStyles, setTrendingStyles] = useState<TrendingStyle[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
 
@@ -170,7 +161,6 @@ useFocusEffect(
       setTrendingStyles(data.styles ?? []);
     } catch (err) {
       console.warn("[HomeScreen] trending styles fetch failed:", err);
-      // Silently fail — section just won't render
       setTrendingStyles([]);
     } finally {
       setTrendingLoading(false);
@@ -639,7 +629,7 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     minHeight: 185,
   },
-  heroBannerImage: { borderRadius: 22 },
+  heroBannerImage: { borderRadius: 22, height: "100%", width: "100%" },
   heroBannerOverlay: { padding: 20, flex: 1 },
   heroBannerInner: {
     flexDirection: "row",

@@ -3,6 +3,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { awardPoints } from "../lib/awardPoints";
+import { verifyIdToken } from "../lib/auth";
 
 const router = Router();
 
@@ -52,7 +53,8 @@ router.post("/batch-check", async (req, res) => {
       select: { appointmentId: true, rating: true, comment: true },
     });
 
-    const reviewed: Record<string, { rating: number; comment: string | null }> = {};
+    const reviewed: Record<string, { rating: number; comment: string | null }> =
+      {};
     for (const r of reviews) {
       reviewed[r.appointmentId] = { rating: r.rating, comment: r.comment };
     }
@@ -74,8 +76,9 @@ router.post("/", async (req, res) => {
       comment?: string;
     };
 
-    if (!userSub)      return res.status(401).json({ error: "Missing userSub" });
-    if (!appointmentId) return res.status(400).json({ error: "Missing appointmentId" });
+    if (!userSub) return res.status(401).json({ error: "Missing userSub" });
+    if (!appointmentId)
+      return res.status(400).json({ error: "Missing appointmentId" });
     if (typeof rating !== "number" || rating < 1 || rating > 5) {
       return res.status(400).json({ error: "Rating must be 1–5" });
     }
@@ -89,13 +92,25 @@ router.post("/", async (req, res) => {
     }
     const customerId = user.customerProfile.id;
 
-    const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
-    if (!appointment)                          return res.status(404).json({ error: "Appointment not found" });
-    if (appointment.customerId !== customerId) return res.status(403).json({ error: "Not your appointment" });
-    if (appointment.status !== "completed")    return res.status(400).json({ error: "Can only review completed appointments" });
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+    });
+    if (!appointment)
+      return res.status(404).json({ error: "Appointment not found" });
+    if (appointment.customerId !== customerId)
+      return res.status(403).json({ error: "Not your appointment" });
+    if (appointment.status !== "completed")
+      return res
+        .status(400)
+        .json({ error: "Can only review completed appointments" });
 
-    const existing = await prisma.appointmentReview.findUnique({ where: { appointmentId } });
-    if (existing) return res.status(409).json({ error: "Already reviewed", review: existing });
+    const existing = await prisma.appointmentReview.findUnique({
+      where: { appointmentId },
+    });
+    if (existing)
+      return res
+        .status(409)
+        .json({ error: "Already reviewed", review: existing });
 
     const review = await prisma.appointmentReview.create({
       data: {
@@ -140,10 +155,10 @@ router.post("/", async (req, res) => {
       review: { id: review.id, rating: review.rating, comment: review.comment },
       loyalty: pointsResult
         ? {
-            pointsAdded:  pointsResult.pointsAdded,
-            newTotal:     pointsResult.newTotal,
-            tierChanged:  pointsResult.tierChanged,
-            newTierName:  pointsResult.newTierName,
+            pointsAdded: pointsResult.pointsAdded,
+            newTotal: pointsResult.newTotal,
+            tierChanged: pointsResult.tierChanged,
+            newTierName: pointsResult.newTierName,
           }
         : null,
     });
@@ -156,14 +171,17 @@ router.post("/", async (req, res) => {
 // ─── GET /api/review/salon ───────────────────────────────────────────────────
 router.get("/salon", async (req, res) => {
   try {
-    const { userSub } = req.query as { userSub?: string };
-    if (!userSub) return res.status(401).json({ error: "Missing userSub" });
+    const idToken = req.query.idToken as string | undefined;
+    if (!idToken) return res.status(401).json({ error: "Missing idToken" });
 
+    const decoded = await verifyIdToken(idToken); // your existing helper
+    const sub = String(decoded.sub);
     const user = await prisma.user.findUnique({
-      where: { auth0Sub: userSub },
+      where: { auth0Sub: sub },
       include: { adminSalon: true },
     });
-    if (!user?.adminSalon) return res.status(400).json({ error: "Salon not found for admin" });
+    if (!user?.adminSalon)
+      return res.status(400).json({ error: "Salon not found for admin" });
 
     const reviews = await prisma.appointmentReview.findMany({
       where: { salonId: user.adminSalon.id },
@@ -176,12 +194,12 @@ router.get("/salon", async (req, res) => {
 
     res.json(
       reviews.map((r) => ({
-        id:              r.id,
-        customerName:    r.customer.user.name,
-        rating:          r.rating,
-        comment:         r.comment,
+        id: r.id,
+        customerName: r.customer.user.name,
+        rating: r.rating,
+        comment: r.comment,
         appointmentDate: r.appointment.date,
-        createdAt:       r.createdAt,
+        createdAt: r.createdAt,
       })),
     );
   } catch (err) {

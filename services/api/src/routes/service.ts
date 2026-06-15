@@ -6,6 +6,7 @@ import { detectStyleId } from "../utils/styleMatcher";
 
 const router = Router();
 
+// POST / — create service
 router.post("/", async (req, res) => {
   try {
     const {
@@ -70,6 +71,7 @@ router.post("/", async (req, res) => {
   }
 });
 
+// GET /categories
 router.get("/categories", async (req, res) => {
   try {
     const { idToken } = req.query;
@@ -96,6 +98,7 @@ router.get("/categories", async (req, res) => {
   }
 });
 
+// GET /list
 router.get("/list", async (req, res) => {
   try {
     const { idToken } = req.query;
@@ -115,9 +118,7 @@ router.get("/list", async (req, res) => {
 
     const services = await prisma.service.findMany({
       where: { salonId: user.adminSalon.id },
-      include: {
-        category: true,
-      },
+      include: { category: true },
       orderBy: { createdAt: "desc" },
     });
 
@@ -125,6 +126,134 @@ router.get("/list", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch services" });
+  }
+});
+
+// GET /:id — fetch single service for edit modal
+router.get("/:id", async (req, res) => {
+  try {
+    const { idToken } = req.query;
+    if (!idToken) return res.status(401).json({ error: "Missing token" });
+
+    const payload = await verifyIdToken(String(idToken));
+    const sub = String(payload.sub);
+
+    const user = await prisma.user.findUnique({
+      where: { auth0Sub: sub },
+      include: { adminSalon: true },
+    });
+
+    if (!user?.adminSalon) return res.status(400).json({ error: "No salon" });
+
+    const service = await prisma.service.findFirst({
+      where: {
+        id: req.params.id,
+        salonId: user.adminSalon.id,
+      },
+      include: { category: true },
+    });
+
+    if (!service) return res.status(404).json({ error: "Service not found" });
+
+    res.json(service);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch service" });
+  }
+});
+
+// PUT /:id — update service
+router.put("/:id", async (req, res) => {
+  try {
+    const { idToken, name, description, durationMin, priceLkr, categoryId } =
+      req.body;
+
+    if (!idToken) return res.status(401).json({ error: "Missing token" });
+
+    const payload = await verifyIdToken(idToken);
+    const sub = String(payload.sub);
+
+    const user = await prisma.user.findUnique({
+      where: { auth0Sub: sub },
+      include: { adminSalon: true },
+    });
+
+    if (!user || user.role !== "admin")
+      return res.status(403).json({ error: "Not allowed" });
+
+    if (!user.adminSalon)
+      return res.status(400).json({ error: "No salon" });
+
+    // Verify the service belongs to this salon
+    const existing = await prisma.service.findFirst({
+      where: { id: req.params.id, salonId: user.adminSalon.id },
+    });
+
+    if (!existing) return res.status(404).json({ error: "Service not found" });
+
+    const detectedStyleId = name !== existing.name
+      ? await detectStyleId(name)
+      : existing.styleId;
+
+    const updated = await prisma.service.update({
+      where: { id: req.params.id },
+      data: {
+        name,
+        description,
+        durationMin,
+        priceLkr,
+        categoryId,
+        styleId: detectedStyleId,
+      },
+      include: { category: true },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update service" });
+  }
+});
+
+// DELETE /:id
+router.delete("/:id", async (req, res) => {
+  try {
+    const { idToken } = req.query;
+    if (!idToken) return res.status(401).json({ error: "Missing token" });
+
+    const payload = await verifyIdToken(String(idToken));
+    const sub = String(payload.sub);
+
+    const user = await prisma.user.findUnique({
+      where: { auth0Sub: sub },
+      include: { adminSalon: true },
+    });
+
+    if (!user || user.role !== "admin")
+      return res.status(403).json({ error: "Not allowed" });
+
+    if (!user.adminSalon)
+      return res.status(400).json({ error: "No salon" });
+
+    // Verify the service belongs to this salon
+    const existing = await prisma.service.findFirst({
+      where: { id: req.params.id, salonId: user.adminSalon.id },
+    });
+
+    if (!existing) return res.status(404).json({ error: "Service not found" });
+
+    await prisma.service.delete({ where: { id: req.params.id } });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error(err);
+    // Prisma foreign key constraint (service is used in appointments)
+    if (err.code === "P2003") {
+      return res
+        .status(409)
+        .json({ error: "Cannot delete service linked to existing appointments" });
+    }
+    res.status(500).json({ error: "Failed to delete service" });
   }
 });
 

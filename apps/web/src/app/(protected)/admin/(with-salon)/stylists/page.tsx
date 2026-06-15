@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@auth0/nextjs-auth0/client";
 import AddStylistModal from "@/components/admin/AddStylistModal";
 import EditStylistModal from "@/components/admin/EditStylistModal";
-import { Search, Star, CalendarDays, Pencil, Clock3, User } from "lucide-react";
+import ViewStylistModal from "@/components/admin/ViewStylistModal";
+import { Search, CalendarDays, Pencil, Clock3, User } from "lucide-react";
 import type { WeeklyShift } from "@/components/admin/WeeklyShiftEditor";
 
 type StylistStatus = "on_duty" | "on_leave";
@@ -15,6 +16,7 @@ type Stylist = {
   yearsOfExperience?: number | null;
   status: StylistStatus;
   createdAt?: string;
+  appointmentCount: number;
   user: {
     id: string;
     name: string;
@@ -36,11 +38,10 @@ export default function StylistsPage() {
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingStylistId, setEditingStylistId] = useState<string | null>(null);
+  const [viewingStylistId, setViewingStylistId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"All" | StylistStatus>(
-    "All",
-  );
+  const [filterStatus, setFilterStatus] = useState<"All" | StylistStatus>("All");
 
   async function fetchStylists() {
     try {
@@ -51,9 +52,7 @@ export default function StylistsPage() {
       const res = await fetch(`${apiBase}/api/stylist/list?idToken=${token}`);
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch stylists");
-      }
+      if (!res.ok) throw new Error(data.error || "Failed to fetch stylists");
 
       setStylists(data);
     } catch (err) {
@@ -70,16 +69,10 @@ export default function StylistsPage() {
   const totalStaff = stylists.length;
   const onDutyCount = stylists.filter((s) => s.status === "on_duty").length;
 
-  const totalRevenue = stylists.reduce((sum, stylist) => {
-    return (
-      sum +
-      stylist.services.reduce((svcSum, svc) => {
-        return svcSum + svc.priceLkr;
-      }, 0)
-    );
-  }, 0);
-
-  const avgRating = 4.8;
+  const totalAppointments = stylists.reduce(
+    (sum, s) => sum + s.appointmentCount,
+    0,
+  );
 
   const filteredStylists = useMemo(() => {
     return stylists.filter((stylist) => {
@@ -100,23 +93,28 @@ export default function StylistsPage() {
     });
   }, [stylists, search, filterStatus]);
 
-  const isModalOpen = open || !!editingStylistId;
+  const maxAppointments = useMemo(
+    () => Math.max(...stylists.map((s) => s.appointmentCount), 1),
+    [stylists],
+  );
+
+  const isModalOpen = open || !!editingStylistId || !!viewingStylistId;
 
   useEffect(() => {
-  const content = document.getElementById("admin-content");
-  if (!content) return;
+    const content = document.getElementById("admin-content");
+    if (!content) return;
 
-  if (isModalOpen) {
-    content.scrollTo({ top: 0, behavior: "smooth" });
-    content.style.overflow = "hidden";
-  } else {
-    content.style.overflow = "";
-  }
+    if (isModalOpen) {
+      content.scrollTo({ top: 0, behavior: "smooth" });
+      content.style.overflow = "hidden";
+    } else {
+      content.style.overflow = "";
+    }
 
-  return () => {
-    content.style.overflow = "";
-  };
-}, [isModalOpen]);
+    return () => {
+      content.style.overflow = "";
+    };
+  }, [isModalOpen]);
 
   return (
     <>
@@ -141,14 +139,10 @@ export default function StylistsPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <StatCard title="Total Staff" value={totalStaff} />
           <StatCard title="On Duty" value={onDutyCount} />
-          <StatCard
-            title="Monthly Revenue"
-            value={`LKR ${totalRevenue.toLocaleString()}`}
-          />
-          <StatCard title="Avg Rating" value={avgRating} />
+          <StatCard title="Total Bookings" value={totalAppointments} />
         </div>
 
         <div className="rounded-xl border border-gray-700 bg-[#111827] p-4">
@@ -190,17 +184,19 @@ export default function StylistsPage() {
         {loading ? (
           <div className="text-gray-400">Loading stylists...</div>
         ) : filteredStylists.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center py-16 text-gray-500">
-          <User className="h-8 w-8 mb-2" />{" "}
-          <p className="text-sm">No stylists found.</p>
-        </div>
+          <div className="flex flex-col items-center justify-center py-16 text-center text-gray-500">
+            <User className="mb-2 h-8 w-8" />
+            <p className="text-sm">No stylists found.</p>
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredStylists.map((stylist) => (
               <StylistCard
                 key={stylist.id}
                 stylist={stylist}
+                totalAppointments={totalAppointments}
                 onEdit={() => setEditingStylistId(stylist.id)}
+                onView={() => setViewingStylistId(stylist.id)}
               />
             ))}
           </div>
@@ -222,6 +218,12 @@ export default function StylistsPage() {
           setEditingStylistId(null);
           fetchStylists();
         }}
+      />
+
+      <ViewStylistModal
+        open={!!viewingStylistId}
+        stylistId={viewingStylistId}
+        onClose={() => setViewingStylistId(null)}
       />
     </>
   );
@@ -259,18 +261,25 @@ function FilterButton({
 
 function StylistCard({
   stylist,
+  totalAppointments,
   onEdit,
+  onView,
 }: {
   stylist: Stylist;
+  totalAppointments: number;
   onEdit: () => void;
+  onView: () => void;
 }) {
   const initials = getInitials(stylist.user.name);
   const shiftSummary = getShiftSummary(stylist.weeklyShifts);
+  const popularityPct = totalAppointments > 0 
+  ? Math.round((stylist.appointmentCount / totalAppointments) * 100) 
+  : 0;
 
   return (
     <div className="rounded-xl border border-gray-700 bg-[#111827] p-5">
       <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-gray-500 text-lg font-medium">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-gray-500 text-lg font-medium">
           {initials}
         </div>
 
@@ -280,7 +289,7 @@ function StylistCard({
           </h3>
           <p className="text-sm text-gray-400">
             {stylist.yearsOfExperience
-              ? `${stylist.yearsOfExperience} years experience`
+              ? `${stylist.yearsOfExperience} year${stylist.yearsOfExperience !== 1 ? "s" : ""} experience`
               : "Stylist"}
           </p>
           <div className="mt-2">
@@ -317,27 +326,28 @@ function StylistCard({
         <span className="truncate">{shiftSummary}</span>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <MiniStat
-          icon={<Star size={16} className="text-yellow-400" />}
-          value={4.8}
-          label="Rating"
-        />
-        <MiniStat
-          icon={<CalendarDays size={16} className="text-gray-300" />}
-          value={stylist.status === "on_duty" ? "Active" : "Away"}
-          label="Status"
-        />
-        <MiniStat
-          value={`LKR ${stylist.services
-            .reduce((sum, service) => sum + service.priceLkr, 0)
-            .toLocaleString()}`}
-          label="Value"
-        />
+      {/* Booking popularity bar */}
+      <div className="mt-4">
+        <div className="mb-1.5 flex items-center justify-between text-xs text-gray-400">
+          <span>Booking popularity</span>
+          <span className="font-medium text-gray-300">
+            {popularityPct}% appointment
+            {stylist.appointmentCount !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-700">
+          <div
+            className="h-full rounded-full bg-[#abd5ff]/70 transition-all duration-500"
+            style={{ width: `${popularityPct}%` }}
+          />
+        </div>
       </div>
 
       <div className="mt-5 flex items-center gap-3">
-        <button className="flex-1 rounded-lg bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600">
+        <button
+          onClick={onView}
+          className="flex-1 rounded-lg bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600"
+        >
           View Profile
         </button>
 
@@ -348,24 +358,6 @@ function StylistCard({
           <Pencil size={16} />
         </button>
       </div>
-    </div>
-  );
-}
-
-function MiniStat({
-  icon,
-  value,
-  label,
-}: {
-  icon?: React.ReactNode;
-  value: string | number;
-  label: string;
-}) {
-  return (
-    <div className="text-center">
-      <div className="mb-1 flex justify-center">{icon}</div>
-      <div className="text-base font-semibold">{value}</div>
-      <div className="text-xs text-gray-400">{label}</div>
     </div>
   );
 }
@@ -390,25 +382,16 @@ const JS_DAY_TO_SHIFT_DAY = [
 ] as const;
 
 function getShiftSummary(shifts?: WeeklyShift[]) {
-  if (!shifts || shifts.length === 0) {
-    return "No shifts set";
-  }
+  if (!shifts || shifts.length === 0) return "No shifts set";
 
   const workingDays = shifts.filter((shift) => !shift.isOff);
-  if (workingDays.length === 0) {
-    return "Off all week";
-  }
+  if (workingDays.length === 0) return "Off all week";
 
   const today = JS_DAY_TO_SHIFT_DAY[new Date().getDay()];
   const todayShift = shifts.find((shift) => shift.dayOfWeek === today);
 
-  if (!todayShift) {
-    return `${workingDays.length} working days • No shift today`;
-  }
-
-  if (todayShift.isOff) {
-    return `${workingDays.length} working days • Off today`;
-  }
+  if (!todayShift) return `${workingDays.length} working days • No shift today`;
+  if (todayShift.isOff) return `${workingDays.length} working days • Off today`;
 
   return `${workingDays.length} working days • Today (${todayShift.startTime} - ${todayShift.endTime})`;
 }
