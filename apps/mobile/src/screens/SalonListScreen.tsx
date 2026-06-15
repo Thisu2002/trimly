@@ -1,7 +1,4 @@
 // D:\trimly\apps\mobile\src\screens\SalonListScreen.tsx
-//
-// No external bottom-sheet dependency — filter panel uses RN's built-in Modal.
-// Safe for Expo Go and any architecture.
 
 import { useEffect, useState } from "react";
 import {

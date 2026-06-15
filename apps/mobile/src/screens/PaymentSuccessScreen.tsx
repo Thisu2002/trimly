@@ -5,9 +5,11 @@ import { LinearGradient } from "expo-linear-gradient";
 export default function PaymentSuccessScreen({ navigation }: any) {
   return (
     <LinearGradient
-      colors={[colors.gradientLeft, colors.gradientRight]}
-      style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-    >
+          colors={[colors.gradientLeft, colors.gradientRight]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 2, y: 0.5 }}
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
       <View style={styles.card}>
         <Text style={styles.title}>Payment Successful!</Text>
         <Text style={styles.subtitle}>
@@ -16,7 +18,12 @@ export default function PaymentSuccessScreen({ navigation }: any) {
 
         <Pressable
           style={styles.button}
-          onPress={() => navigation.navigate("Appointments")}
+          onPress={() =>
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "AppointmentsTab" }],
+            })
+          }
         >
           <Text style={styles.buttonText}>View My Bookings</Text>
         </Pressable>

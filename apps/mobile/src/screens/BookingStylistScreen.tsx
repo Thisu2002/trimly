@@ -1,3 +1,4 @@
+//D:\trimly\apps\mobile\src\screens\BookingStylistScreen.tsx
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,10 +13,12 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
 import { API_BASE_URL } from "../config/api";
 import { AvailableStylistGroup, StylistItem } from "../types/salon";
+import StylistProfileSheet from "../components/StylistProfileSheet";
 import { colors } from "../theme/colors";
 
 type Props = NativeStackScreenProps<RootStackParamList, "BookingStylist">;
@@ -32,6 +35,7 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
   >({});
   const [loading, setLoading] = useState(true);
   const insets = useSafeAreaInsets();
+  const [profileStylistId, setProfileStylistId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -159,13 +163,59 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
                                 pickStylist(group.serviceId, stylist)
                               }
                             >
-                              <View style={styles.avatar} />
-                              <Text style={styles.stylistName}>
+                              {/* selected tick */}
+                              {active && (
+                                <View style={styles.selectedBadge}>
+                                  <Ionicons
+                                    name="checkmark"
+                                    size={10}
+                                    color={colors.background}
+                                  />
+                                </View>
+                              )}
+
+                              {/* avatar */}
+                              <View style={styles.avatar}>
+                                <Ionicons
+                                  name="person"
+                                  size={20}
+                                  color={colors.textMuted}
+                                />
+                              </View>
+
+                              <Text
+                                style={styles.stylistName}
+                                numberOfLines={1}
+                              >
                                 {stylist.name}
                               </Text>
-                              <Text style={styles.profileText}>
-                                View Profile
-                              </Text>
+
+                              {stylist.yearsOfExperience != null && (
+                                <Text style={styles.stylistExp}>
+                                  {stylist.yearsOfExperience}yr exp
+                                </Text>
+                              )}
+
+                              {/* view profile — stops propagation so card select doesn't fire */}
+                              <Pressable
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  setProfileStylistId(stylist.id);
+                                }}
+                                style={({ pressed }) => [
+                                  styles.profileBtn,
+                                  pressed && styles.profileBtnPressed,
+                                ]}
+                              >
+                                <Ionicons
+                                  name="person-circle-outline"
+                                  size={12}
+                                  color={colors.primaryLight}
+                                />
+                                <Text style={styles.profileText}>
+                                  View Profile
+                                </Text>
+                              </Pressable>
                             </Pressable>
                           );
                         })}
@@ -201,6 +251,10 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
             </View>
           </View>
         </View>
+        <StylistProfileSheet
+          stylistId={profileStylistId}
+          onClose={() => setProfileStylistId(null)}
+        />
       </SafeAreaView>
     </LinearGradient>
   );
@@ -303,32 +357,72 @@ const styles = StyleSheet.create({
   },
   stylistCard: {
     width: "47%",
-    backgroundColor: colors.card,
+    backgroundColor: "rgba(20, 28, 45, 0.6)",
     borderRadius: 16,
     padding: 12,
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    position: "relative",
+    overflow: "hidden",
   },
   stylistCardActive: {
     borderColor: colors.primaryLight,
+    backgroundColor: "rgba(42, 79, 122, 0.35)",
+  },
+  selectedBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.chip,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 8,
   },
   stylistName: {
     color: colors.text,
     fontWeight: "700",
+    fontSize: 13,
     textAlign: "center",
   },
-  profileText: {
-    color: colors.gradientRight,
-    fontSize: 12,
+  stylistExp: {
+    fontSize: 11,
+    color: colors.textMuted,
     marginTop: 2,
+    marginBottom: 6,
+  },
+  profileBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: "rgba(171, 213, 255, 0.2)",
+    backgroundColor: "rgba(42, 79, 122, 0.3)",
+  },
+  profileBtnPressed: {
+    opacity: 0.6,
+  },
+  profileText: {
+    color: colors.primaryLight,
+    fontSize: 11,
+    fontWeight: "500",
   },
   pinnedPanel: {
     borderTopWidth: 1,

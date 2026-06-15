@@ -8,7 +8,10 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
@@ -99,7 +102,10 @@ export default function BookingSummaryScreen({
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Payment init failed");
+      if (!res.ok) {
+        setLoading(false);
+        throw new Error(data.error || "Payment init failed");
+      }
 
       const { pendingPaymentId, paymentData } = data;
 
@@ -110,19 +116,28 @@ export default function BookingSummaryScreen({
             const appointmentId = await pollPaymentStatus(pendingPaymentId);
             navigation.navigate("PaymentSuccess", { appointmentId });
           } catch (pollError: any) {
+            setLoading(false);
             Alert.alert(
               "Checking Payment",
               pollError?.message || "We couldn't confirm your payment yet.",
             );
           }
         },
-        (error: string) => Alert.alert("Payment Error", error),
-        () => console.log("Payment dismissed by user"),
+        (error: string) => {
+          setLoading(false);
+          Alert.alert("Payment Error", error);
+        },
+        () => {
+          setLoading(false);
+          Alert.alert(
+            "Payment Cancelled",
+            "Your payment was cancelled. No charges were made.",
+          );
+        },
       );
     } catch (error: any) {
-      Alert.alert("Error", error?.message || "Something went wrong");
-    } finally {
       setLoading(false);
+      Alert.alert("Error", error?.message || "Something went wrong");
     }
   }
 
@@ -216,7 +231,10 @@ export default function BookingSummaryScreen({
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color={colors.text} />
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <ActivityIndicator size="small" color={colors.text} />
+                    <Text style={styles.continueButtonText}>Processing...</Text>
+                  </View>
                 ) : (
                   <Text style={styles.continueButtonText}>Confirm & Pay →</Text>
                 )}

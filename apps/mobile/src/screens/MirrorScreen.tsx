@@ -238,7 +238,7 @@ export default function MirrorScreen({
               <Text style={styles.cameraPlaceholderSub}>
                 Turn left · center · right{"\n"}
                 We'll detect your face shape automatically{"\n"}
-                and let you try on styles in 3D.
+                and let you try on hairstyles.
               </Text>
             </Pressable>
 

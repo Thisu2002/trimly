@@ -7,9 +7,11 @@ import WeeklyShiftEditor, {
   DEFAULT_WEEKLY_SHIFTS,
   WeeklyShift,
 } from "@/components/admin/WeeklyShiftEditor";
+import type { StylistForView } from "@/components/admin/ViewStylistModal";
 
 interface Props {
   stylistId: string | null;
+  initialData: StylistForView | null;
   open: boolean;
   onClose: () => void;
 }
@@ -21,27 +23,9 @@ type Service = {
   name: string;
 };
 
-type StylistDetails = {
-  id: string;
-  bio?: string | null;
-  yearsOfExperience?: number | null;
-  status: StylistStatus;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    phone?: string | null;
-    address?: string | null;
-  };
-  services: {
-    id: string;
-    name: string;
-  }[];
-  weeklyShifts: WeeklyShift[];
-};
-
 export default function EditStylistModal({
   stylistId,
+  initialData,
   open,
   onClose,
 }: Props) {
@@ -52,75 +36,57 @@ export default function EditStylistModal({
   const [bio, setBio] = useState("");
   const [yoe, setYoe] = useState(1);
   const [status, setStatus] = useState<StylistStatus>("on_duty");
-  const [weeklyShifts, setWeeklyShifts] =
-    useState<WeeklyShift[]>(DEFAULT_WEEKLY_SHIFTS);
+  const [weeklyShifts, setWeeklyShifts] = useState<WeeklyShift[]>(
+    DEFAULT_WEEKLY_SHIFTS,
+  );
 
   const [services, setServices] = useState<Service[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(false);
+  const [fetchingServices, setFetchingServices] = useState(false);
 
-  async function fetchServices() {
-    const token = await getAccessToken();
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
-    const res = await fetch(`${apiBase}/api/service/list?idToken=${token}`);
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to fetch services");
-    }
-
-    setServices(data);
-  }
-
-  async function fetchStylist() {
-    if (!stylistId) return;
-
-    const token = await getAccessToken();
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
-    const res = await fetch(`${apiBase}/api/stylist/${stylistId}?idToken=${token}`);
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || "Failed to fetch stylist");
-    }
-
-    const stylist = data as StylistDetails;
-
-    setName(stylist.user.name || "");
-    setEmail(stylist.user.email || "");
-    setPhone(stylist.user.phone || "");
-    setAddress(stylist.user.address || "");
-    setBio(stylist.bio || "");
-    setYoe(stylist.yearsOfExperience ?? 1);
-    setStatus(stylist.status);
-    setSelected(stylist.services.map((service) => service.id));
-    setWeeklyShifts(
-      stylist.weeklyShifts.length > 0
-        ? stylist.weeklyShifts
-        : DEFAULT_WEEKLY_SHIFTS
-    );
-  }
-
+  // Pre-fill from prop immediately — no loading state needed for the form itself
   useEffect(() => {
-    async function load() {
-      if (!open || !stylistId) return;
+    if (!open || !initialData) return;
 
-      setFetching(true);
+    setName(initialData.user.name || "");
+    setEmail(initialData.user.email || "");
+    setPhone(initialData.user.phone || "");
+    setAddress(initialData.user.address || "");
+    setBio(initialData.bio || "");
+    setYoe(initialData.yearsOfExperience ?? 1);
+    setStatus(initialData.status);
+    setSelected(initialData.services.map((s) => s.id));
+    setWeeklyShifts(
+      initialData.weeklyShifts && initialData.weeklyShifts.length > 0
+        ? initialData.weeklyShifts
+        : DEFAULT_WEEKLY_SHIFTS,
+    );
+  }, [open, initialData]);
+
+  // Only fetch the full services list (can't get this from the page)
+  useEffect(() => {
+    async function loadServices() {
+      if (!open) return;
+      setFetchingServices(true);
       try {
-        await Promise.all([fetchServices(), fetchStylist()]);
+        const token = await getAccessToken();
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
+        const res = await fetch(`${apiBase}/api/service/list?idToken=${token}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to fetch services");
+        setServices(data);
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to load stylist";
-        toast.error(message);
+        toast.error(
+          err instanceof Error ? err.message : "Failed to load services",
+        );
       } finally {
-        setFetching(false);
+        setFetchingServices(false);
       }
     }
-
-    load();
-  }, [open, stylistId]);
+    loadServices();
+  }, [open]);
 
   function resetForm() {
     setName("");
@@ -132,6 +98,7 @@ export default function EditStylistModal({
     setStatus("on_duty");
     setSelected([]);
     setWeeklyShifts(DEFAULT_WEEKLY_SHIFTS);
+    setServices([]);
   }
 
   function handleClose() {
@@ -142,7 +109,7 @@ export default function EditStylistModal({
 
   function toggleService(id: string) {
     setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   }
 
@@ -166,7 +133,6 @@ export default function EditStylistModal({
     }
 
     setLoading(true);
-
     try {
       const token = await getAccessToken();
       const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL!;
@@ -188,17 +154,14 @@ export default function EditStylistModal({
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to update stylist");
-      }
+      if (!res.ok) throw new Error(data.error || "Failed to update stylist");
 
       toast.success("Stylist updated!");
       handleClose();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to update stylist";
-      toast.error(message);
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update stylist",
+      );
     } finally {
       setLoading(false);
     }
@@ -222,72 +185,74 @@ export default function EditStylistModal({
           </button>
         </div>
 
-        {fetching ? (
-          <div className="py-10 text-center text-gray-400">
-            Loading stylist...
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <input
-                placeholder="Name"
-                className="input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-              <input
-                placeholder="Email"
-                type="email"
-                className="input opacity-70"
-                value={email}
-                disabled
-              />
-              <input
-                placeholder="Phone"
-                className="input"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-              <input
-                placeholder="Address"
-                className="input"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
-            </div>
-
-            <textarea
-              placeholder="Bio"
-              className="input min-h-[90px]"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <input
+              placeholder="Name"
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
             />
+            <input
+              placeholder="Email"
+              type="email"
+              className="input opacity-70"
+              value={email}
+              disabled
+            />
+            <input
+              placeholder="Phone"
+              className="input"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <input
+              placeholder="Address"
+              className="input"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
 
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <textarea
+            placeholder="Bio"
+            className="input min-h-[90px]"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+          />
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">
+                Years of Experience
+              </label>
               <input
                 type="number"
                 min={0}
-                placeholder="Years of Experience"
-                className="input"
+                className="input w-full"
                 value={yoe}
                 onChange={(e) => setYoe(Number(e.target.value))}
               />
-
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">Status</label>
               <select
                 value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value as "on_duty" | "on_leave")
-                }
+                onChange={(e) => setStatus(e.target.value as StylistStatus)}
                 className="input"
               >
                 <option value="on_duty">On duty</option>
                 <option value="on_leave">On leave</option>
               </select>
             </div>
+          </div>
 
-            <div>
-              <p className="mb-2 text-sm font-medium">Services</p>
+          <div>
+            <p className="mb-2 text-sm font-medium">Services</p>
+            {fetchingServices ? (
+              <p className="text-xs text-gray-500">Loading services...</p>
+            ) : (
               <div className="flex flex-wrap gap-2">
                 {services.map((service) => (
                   <button
@@ -304,24 +269,24 @@ export default function EditStylistModal({
                   </button>
                 ))}
               </div>
-            </div>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Weekly Shifts</p>
-              <WeeklyShiftEditor
-                shifts={weeklyShifts}
-                onChange={setWeeklyShifts}
-              />
-            </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Weekly Shifts</p>
+            <WeeklyShiftEditor
+              shifts={weeklyShifts}
+              onChange={setWeeklyShifts}
+            />
+          </div>
 
-            <button
-              disabled={loading}
-              className="w-full rounded-xl bg-[#2a4f7a] py-2.5 text-white disabled:opacity-60"
-            >
-              {loading ? "Saving..." : "Save Changes"}
-            </button>
-          </form>
-        )}
+          <button
+            disabled={loading}
+            className="w-full rounded-xl bg-[#2a4f7a] py-2.5 text-white disabled:opacity-60"
+          >
+            {loading ? "Saving..." : "Save Changes"}
+          </button>
+        </form>
       </div>
     </div>
   );

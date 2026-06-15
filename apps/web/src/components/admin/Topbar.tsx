@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Search, Settings } from "lucide-react";
+import { Bell, Settings } from "lucide-react";
 import Link from "next/link";
 
 type Props = {
@@ -37,14 +37,6 @@ export default function Topbar({ user }: Props) {
           Welcome back, {displayName}
         </h1>
         <span className="text-xs text-gray-400">{today || "\u00A0"}</span>
-      </div>
-
-      <div className="hidden w-[400px] items-center rounded-xl border border-white/10 bg-[#111827] px-3 py-2 md:flex">
-        <Search size={16} className="mr-2 text-gray-400" />
-        <input
-          placeholder="Search clients, bookings..."
-          className="w-full bg-transparent text-sm text-white outline-none placeholder:text-gray-500"
-        />
       </div>
 
       <div className="flex items-center gap-4">

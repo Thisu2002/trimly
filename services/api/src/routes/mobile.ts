@@ -290,13 +290,6 @@ router.post("/slots", async (req, res) => {
       salonBusy: false,
     }));
 
-    // const slots = rawSlots.map((startTime) => ({
-    //   startTime,
-    //   endTime: startTime,
-    //   disabled: false,
-    //   salonBusy: false,
-    // }));
-
     return res.json({
       slotDuration: hours.slotDuration,
       slots,
@@ -421,6 +414,57 @@ router.post("/stylists/available", async (req, res) => {
   } catch (error) {
     console.error("Available stylists error:", error);
     return res.status(500).json({ error: "Failed to fetch stylists" });
+  }
+});
+
+router.get("/stylists/:stylistId/profile", async (req, res) => {
+  try {
+    const { stylistId } = req.params;
+
+    const stylist = await prisma.stylist.findUnique({
+      where: { id: stylistId },
+      include: {
+        user: { select: { name: true, photo: true } },
+        services: {
+          include: { service: { select: { id: true, name: true } } },
+        },
+      },
+    });
+
+    if (!stylist) {
+      return res.status(404).json({ error: "Stylist not found" });
+    }
+
+    const ratingAgg = await prisma.appointmentReview.aggregate({
+      where: {
+        appointment: {
+          services: { some: { stylistId } },
+        },
+      },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+    return res.json({
+      stylist: {
+        id: stylist.id,
+        name: stylist.user.name,
+        photo: stylist.user.photo,
+        bio: stylist.bio,
+        yearsOfExperience: stylist.yearsOfExperience,
+        services: stylist.services.map((s) => ({
+          id: s.service.id,
+          name: s.service.name,
+        })),
+        rating: ratingAgg._avg.rating
+          ? parseFloat(ratingAgg._avg.rating.toFixed(1))
+          : null,
+        reviewCount: ratingAgg._count.rating,
+      },
+    });
+  } catch (error) {
+    console.error("Stylist profile error:", error);
+    return res.status(500).json({ error: "Failed to fetch stylist profile" });
   }
 });
 

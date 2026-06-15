@@ -207,8 +207,6 @@ router.get("/list", async (req, res) => {
   }
 });
 
-// Replace the current GET /:id handler in stylist.ts
-
 router.get("/:id", async (req, res) => {
   try {
     const idToken = String(req.query.idToken || "");
@@ -386,6 +384,45 @@ router.put("/:id", async (req, res) => {
     return res
       .status(err?.statusCode || 500)
       .json({ error: err?.message || "Failed to update stylist" });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const { idToken } = req.query;
+    if (!idToken) return res.status(401).json({ error: "Missing token" });
+
+    const payload = await verifyIdToken(String(idToken));
+    const sub = String(payload.sub);
+
+    const user = await prisma.user.findUnique({
+      where: { auth0Sub: sub },
+      include: { adminSalon: true },
+    });
+
+    if (!user || user.role !== "admin")
+      return res.status(403).json({ error: "Not allowed" });
+
+    if (!user.adminSalon)
+      return res.status(400).json({ error: "No salon" });
+
+    const existing = await prisma.stylist.findFirst({
+      where: { id: req.params.id, salonId: user.adminSalon.id },
+    });
+
+    if (!existing) return res.status(404).json({ error: "Stylist not found" });
+
+    await prisma.stylist.delete({ where: { id: req.params.id } });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error(err);
+    if (err.code === "P2003") {
+      return res
+        .status(409)
+        .json({ error: "Cannot remove stylist linked to existing appointments" });
+    }
+    res.status(500).json({ error: "Failed to remove stylist" });
   }
 });
 

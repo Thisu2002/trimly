@@ -86,8 +86,7 @@ router.post("/me", async (req, res) => {
     if (!email)
       return res.status(400).json({ error: "email missing in token" });
 
-    const userName =
-      typeof payload.name === "string" ? payload.name : email.split("@")[0];
+    const userName = email.split("@")[0];
 
     const rawRoles = payload["https://trimly.app/roles"];
     const authRoles = Array.isArray(rawRoles) ? rawRoles.map(String) : [];

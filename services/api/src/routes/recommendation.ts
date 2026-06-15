@@ -14,7 +14,7 @@ router.post("/style", async (req, res) => {
       previousServices,
     } = req.body;
 
-    const AI_URL = process.env.AI_URL || "http://localhost:8000";
+    const AI_URL = process.env.AI_URL || "http://localhost:8000";console.log("AI_URL:", AI_URL);
     const aiRes = await fetch(AI_URL + "/recommendations/style", {
       method: "POST",
       headers: {

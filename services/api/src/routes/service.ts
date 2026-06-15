@@ -235,7 +235,6 @@ router.delete("/:id", async (req, res) => {
     if (!user.adminSalon)
       return res.status(400).json({ error: "No salon" });
 
-    // Verify the service belongs to this salon
     const existing = await prisma.service.findFirst({
       where: { id: req.params.id, salonId: user.adminSalon.id },
     });
@@ -247,7 +246,6 @@ router.delete("/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err: any) {
     console.error(err);
-    // Prisma foreign key constraint (service is used in appointments)
     if (err.code === "P2003") {
       return res
         .status(409)

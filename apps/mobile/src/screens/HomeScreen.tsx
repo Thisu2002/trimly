@@ -9,7 +9,6 @@ import {
   Image,
   Dimensions,
   FlatList,
-  ActivityIndicator,
   ImageSourcePropType,
 } from "react-native";
 import {
@@ -17,13 +16,16 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { ImageBackground } from "react-native";
+import { ImageBackground, Animated, Easing } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { CompositeNavigationProp, useFocusEffect } from "@react-navigation/native";
+import {
+  CompositeNavigationProp,
+  useFocusEffect,
+} from "@react-navigation/native";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { auth0 } from "../lib/auth";
 import { colors } from "../theme/colors";
 import { AuthUser } from "../types/auth";
@@ -130,11 +132,74 @@ function TrendingSkeleton() {
   );
 }
 
-export default function HomeScreen({
-  user,
-  onLogout,
-  onRefreshUser,
-}: Props) {
+function AnimatedCTABorder({ children }: { children: React.ReactNode }) {
+  const rot = useRef(new Animated.Value(0)).current;
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    Animated.timing(rot, {
+      toValue: 1,
+      duration: 5000,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => setDone(true));
+  }, []);
+
+  const spin = rot.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  if (done) {
+    return (
+      <View style={ctaBorder.wrapper}>
+        <LinearGradient
+          colors={["#135da8", "#abd5ff", "#ac6489"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={ctaBorder.inner}>{children}</View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={ctaBorder.wrapper}>
+      <Animated.View
+        style={[ctaBorder.spinLayer, { transform: [{ rotate: spin }] }]}
+      >
+        <LinearGradient
+          colors={["#135da8", "#abd5ff", "#ac6489"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
+      <View style={ctaBorder.inner}>{children}</View>
+    </View>
+  );
+}
+
+const ctaBorder = StyleSheet.create({
+  wrapper: {
+    alignSelf: "flex-start",
+    borderRadius: 30,
+    overflow: "hidden",
+    padding: 1.5,
+    backgroundColor: "transparent",
+  },
+  spinLayer: {
+    ...StyleSheet.absoluteFillObject,
+    margin: -40,
+  },
+  inner: {
+    borderRadius: 28,
+    overflow: "hidden",
+    backgroundColor: colors.primary,
+  },
+});
+export default function HomeScreen({ user, onLogout, onRefreshUser }: Props) {
   const navigation = useNavigation<NavProp>();
   const insets = useSafeAreaInsets();
   const bottomPad = 62 + insets.bottom + 12;
@@ -144,14 +209,14 @@ export default function HomeScreen({
   const [trendingLoading, setTrendingLoading] = useState(true);
 
   useEffect(() => {
-  fetchTrendingStyles();
-}, []);
+    fetchTrendingStyles();
+  }, []);
 
-useFocusEffect(
-  useCallback(() => {
-    onRefreshUser();
-  }, [onRefreshUser]),
-);
+  useFocusEffect(
+    useCallback(() => {
+      onRefreshUser();
+    }, [onRefreshUser]),
+  );
 
   async function fetchTrendingStyles() {
     try {
@@ -197,7 +262,13 @@ useFocusEffect(
               resizeMode="contain"
             />
             <View style={styles.headerRight}>
-              <Pressable onPress={() => navigation.navigate("Loyalty", {})} style={styles.rewardsBtn}>
+              <Pressable
+                onPress={() => navigation.navigate("Loyalty", {})}
+                style={({ pressed }) => [
+                  styles.rewardsBtn,
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+                ]}
+              >
                 <LinearGradient
                   colors={["rgba(42,79,122,0.6)", "rgba(0,59,143,0.4)"]}
                   style={styles.rewardsBtnInner}
@@ -211,7 +282,13 @@ useFocusEffect(
                 </LinearGradient>
               </Pressable>
 
-              <Pressable onPress={handleLogout} style={styles.avatarBtn}>
+              <Pressable
+                onPress={handleLogout}
+                style={({ pressed }) => [
+                  styles.avatarBtn,
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+                ]}
+              >
                 <LinearGradient
                   colors={["rgba(42,79,122,0.8)", "rgba(0,59,143,0.6)"]}
                   style={styles.avatar}
@@ -255,17 +332,38 @@ useFocusEffect(
                 </View>
               </View>
 
-              <Pressable style={styles.heroCTA} onPress={() => navigation.getParent()?.navigate("SalonsTab")}>
-                <Text style={styles.heroCTAText}>Browse Salons</Text>
-                <Ionicons name="arrow-forward" size={16} color={colors.white} />
-              </Pressable>
+              {/* Animated border Browse Salons button */}
+              <AnimatedCTABorder>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.heroCTA,
+                    pressed && styles.heroCTAPressed,
+                  ]}
+                  onPress={() => navigation.getParent()?.navigate("SalonsTab")}
+                >
+                  <Text style={styles.heroCTAText}>Browse Salons</Text>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={16}
+                    color={colors.white}
+                  />
+                </Pressable>
+              </AnimatedCTABorder>
             </LinearGradient>
           </ImageBackground>
 
           {/* ── Section: Quick Actions ── */}
           <Text style={styles.sectionTitle}>Quick Access</Text>
           <View style={styles.quickRow}>
-            <Pressable style={styles.quickCard} onPress={() => navigation.getParent()?.navigate("AppointmentsTab")}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.quickCard,
+                pressed && styles.quickCardPressed,
+              ]}
+              onPress={() =>
+                navigation.getParent()?.navigate("AppointmentsTab")
+              }
+            >
               <View
                 style={[
                   styles.quickIcon,
@@ -282,7 +380,10 @@ useFocusEffect(
             </Pressable>
 
             <Pressable
-              style={styles.quickCard}
+              style={({ pressed }) => [
+                styles.quickCard,
+                pressed && styles.quickCardPressed,
+              ]}
               onPress={() => navigation.getParent()?.navigate("SalonsTab")}
             >
               <View
@@ -301,7 +402,10 @@ useFocusEffect(
             </Pressable>
 
             <Pressable
-              style={styles.quickCard}
+              style={({ pressed }) => [
+                styles.quickCard,
+                pressed && styles.quickCardPressed,
+              ]}
               onPress={() => navigation.navigate("StyleRecommendation")}
             >
               <View
@@ -320,7 +424,10 @@ useFocusEffect(
             </Pressable>
 
             <Pressable
-              style={styles.quickCard}
+              style={({ pressed }) => [
+                styles.quickCard,
+                pressed && styles.quickCardPressed,
+              ]}
               onPress={() => navigation.navigate("Mirror", {})}
             >
               <View
@@ -350,7 +457,10 @@ useFocusEffect(
                   </Text>
                 </View>
                 <Pressable
-                  style={styles.seeAllBtn}
+                  style={({ pressed }) => [
+                    styles.seeAllBtn,
+                    pressed && { opacity: 0.6 },
+                  ]}
                   onPress={() => navigation.navigate("StyleRecommendation")}
                 >
                   <Text style={styles.seeAllText}>See all</Text>
@@ -398,7 +508,10 @@ useFocusEffect(
 
           {/* Virtual Mirror Card */}
           <Pressable
-            style={styles.featureCard}
+            style={({ pressed }) => [
+              styles.featureCard,
+              pressed && styles.featureCardPressed,
+            ]}
             onPress={() => navigation.navigate("Mirror", {})}
           >
             <LinearGradient
@@ -439,7 +552,10 @@ useFocusEffect(
 
           {/* Style Recommendation Card */}
           <Pressable
-            style={styles.featureCardAccent}
+            style={({ pressed }) => [
+              styles.featureCardAccent,
+              pressed && styles.featureCardPressed,
+            ]}
             onPress={() => navigation.navigate("StyleRecommendation")}
           >
             <LinearGradient
@@ -502,7 +618,13 @@ useFocusEffect(
             <Text style={styles.profileChipText} numberOfLines={1}>
               {user?.email ?? "—"}
             </Text>
-            <Pressable onPress={handleLogout} style={styles.logoutChipBtn}>
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.logoutChipBtn,
+                pressed && { opacity: 0.6, transform: [{ scale: 0.95 }] },
+              ]}
+            >
               <Text style={styles.logoutChipText}>Log out</Text>
             </Pressable>
           </View>
@@ -657,12 +779,13 @@ const styles = StyleSheet.create({
   heroCTA: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.primary,
-    alignSelf: "flex-start",
     paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 30,
     gap: 6,
+  },
+  heroCTAPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.97 }],
   },
   heroCTAText: { color: colors.white, fontWeight: "700", fontSize: 14 },
 
@@ -703,6 +826,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
     gap: 8,
+  },
+  quickCardPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.94 }],
+    backgroundColor: "rgba(42,79,122,0.45)",
   },
   quickIcon: {
     width: 44,
@@ -764,6 +892,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   featureCardSub: { fontSize: 12, color: colors.textSoft, lineHeight: 17 },
+  featureCardPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.97 }],
+  },
   featureArrowWrap: {
     width: 32,
     height: 32,
