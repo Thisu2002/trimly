@@ -1,3 +1,4 @@
+//D:\trimly\apps\web\src\components\stylist\StylistNav.tsx
 "use client";
 
 import Link from "next/link";
@@ -8,7 +9,6 @@ const NAV = [
   { name: "Appointments", href: "/stylist/appointments" },
   { name: "Schedule", href: "/stylist/schedule" },
   { name: "My Profile", href: "/stylist/profile" },
-  { name: "Logout", href: "/auth/logout" },
 ];
 
 export default function StylistNav() {
@@ -17,7 +17,7 @@ export default function StylistNav() {
   return (
     <nav className="flex gap-1 border-b border-white/10 bg-[#0b1220] px-6">
       {NAV.map((item) => {
-        const isActive = pathname.startsWith(item.href) && item.href !== "/auth/logout";
+        const isActive = pathname.startsWith(item.href);
         return (
           <Link
             key={item.name}

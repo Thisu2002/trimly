@@ -32,6 +32,7 @@ export type StylistItem = {
   name: string;
   bio?: string | null;
   yearsOfExperience?: number | null;
+  photo?: string | null;
 };
 
 export type SalonDetail = {

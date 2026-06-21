@@ -406,6 +406,7 @@ router.post("/stylists/available", async (req, res) => {
           name: stylist.user.name || stylist.user.email,
           yearsOfExperience: stylist.yearsOfExperience,
           bio: stylist.bio,
+          photo: stylist.user.photo,
         })),
       };
     });

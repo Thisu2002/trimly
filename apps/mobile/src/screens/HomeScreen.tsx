@@ -10,6 +10,7 @@ import {
   Dimensions,
   FlatList,
   ImageSourcePropType,
+  Modal,
 } from "react-native";
 import {
   SafeAreaView,
@@ -207,6 +208,20 @@ export default function HomeScreen({ user, onLogout, onRefreshUser }: Props) {
 
   const [trendingStyles, setTrendingStyles] = useState<TrendingStyle[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+
+  function confirmLogout() {
+    setShowAvatarMenu(false);
+    Alert.alert(
+      "Log out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Log out", style: "destructive", onPress: handleLogout },
+      ],
+      { cancelable: true },
+    );
+  }
 
   useEffect(() => {
     fetchTrendingStyles();
@@ -283,7 +298,7 @@ export default function HomeScreen({ user, onLogout, onRefreshUser }: Props) {
               </Pressable>
 
               <Pressable
-                onPress={handleLogout}
+                onPress={() => setShowAvatarMenu(true)}
                 style={({ pressed }) => [
                   styles.avatarBtn,
                   pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
@@ -632,10 +647,71 @@ export default function HomeScreen({ user, onLogout, onRefreshUser }: Props) {
           {/* Bottom padding for tab bar + Android nav bar */}
           <View style={{ height: bottomPad }} />
         </ScrollView>
+        <Modal
+          visible={showAvatarMenu}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowAvatarMenu(false)}
+        >
+          <Pressable
+            style={menuStyles.backdrop}
+            onPress={() => setShowAvatarMenu(false)}
+          >
+            <View style={[menuStyles.dropdown, { top: insets.top + 64 }]}>
+              <Pressable
+                style={({ pressed }) => [
+                  menuStyles.menuItem,
+                  pressed && menuStyles.menuItemPressed,
+                ]}
+                onPress={confirmLogout}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#f87171" />
+                <Text style={menuStyles.menuItemText}>Logout</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
 }
+
+const menuStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  dropdown: {
+    position: "absolute",
+    right: 18,
+    minWidth: 150,
+    backgroundColor: "#111827",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  menuItemPressed: {
+    backgroundColor: "rgba(248,113,113,0.08)",
+  },
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#f87171",
+  },
+});
 
 // ─── Trending card styles ─────────────────────────────────────────────────────
 const trend = StyleSheet.create({

@@ -1,3 +1,4 @@
+//D:\trimly\apps\web\src\app\(protected)\stylist\appointments\page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";

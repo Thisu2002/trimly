@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../navigation/RootNavigator";
+import { useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme/colors";
 import { API_BASE_URL } from "../config/api";
@@ -136,6 +137,7 @@ export default function MirrorScreen({
   const [hairType, setHairType] = useState<string | null>(null);
   const [hairLength, setHairLength] = useState<string | null>(null);
   const [styleGoal, setStyleGoal] = useState<string | null>(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   async function handleSaveAndRecommend() {
     if (!faceShape || !hairType || !hairLength || !styleGoal) {
@@ -227,7 +229,16 @@ export default function MirrorScreen({
                 styles.scanCard,
                 pressed && styles.scanCardPressed,
               ]}
-              onPress={() => navigation.navigate("FaceScan")}
+              onPress={async () => {
+                if (cameraPermission?.granted) {
+                  navigation.navigate("FaceScan");
+                } else {
+                  const result = await requestCameraPermission();
+                  if (result.granted) {
+                    navigation.navigate("FaceScan");
+                  }
+                }
+              }}
             >
               <View style={styles.cameraIconWrap}>
                 <Ionicons name="scan-circle" size={68} color={colors.primary} />
@@ -365,8 +376,8 @@ const q = StyleSheet.create({
 
 // ── Screen-level styles ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40 },
+  safe: { flex: 1, marginBottom: 80 },
+  content: { padding: 16 },
   page: {
     backgroundColor: colors.page,
     borderRadius: 24,

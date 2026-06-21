@@ -1,8 +1,3 @@
-/**
- * VirtualTryOnScreen.tsx
- * AI-powered hair try-on with 3 view tabs (front, left, right)
- */
-
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import * as MediaLibrary from "expo-media-library";
 import * as FileSystem from "expo-file-system/legacy";
 import { Ionicons } from "@expo/vector-icons";
@@ -50,52 +45,21 @@ export default function VirtualTryOnScreen({
   landmarks,
 }: Props) {
   const photos = route.params.photos;
-  // const photos ={
-  // front: "http://localhost:4000/uploads/test-front.jpg",
-  // left:  "http://localhost:4000/uploads/test-left.jpg",
-  // right: "http://localhost:4000/uploads/test-right.jpg"
-  // }
   const userSub = route.params.userSub;
   const idToken = route.params.idToken;
 
   const [genderFilter, setGenderFilter] = useState<"female" | "male">("female");
   const [activeView, setActiveView] = useState<ViewTab>("front");
-  const [selected, setSelected] = useState<HairStyle3D>(
-    HAIR_STYLES_3D.filter((s) => s.gender === "female")[0],
-  );
+  const [selected, setSelected] = useState<HairStyle3D | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const cache = useRef<Record<string, GeneratedImages>>({});
-  // Preloads cache with public images so download can be tested without Claid credits
-  // useEffect(() => {
-  //   const MOCK_STYLE_ID = HAIR_STYLES_3D.filter((s) => s.gender === "female")[0].id;
-  //   const mockImages: GeneratedImages = {
-  //     front: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=600",
-  //     left:  "https://images.unsplash.com/photo-1488716820095-cbe80883c496?w=600",
-  //     right: "https://images.unsplash.com/photo-1520813792240-56fc4a3765a7?w=600",
-  //   };
-  //   cache.current[MOCK_STYLE_ID] = mockImages;
-  //   setGenerated(mockImages);
-  // }, []);
   const [generated, setGenerated] = useState<GeneratedImages>({});
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
 
-  // Request media library permission on mount
-  const [mediaPermission, requestMediaPermission] =
-    MediaLibrary.usePermissions();
-
-  // PHOTO STORAGE DISABLED — no cache pre-population from DB
-  // useEffect(() => {
-  //   const existing = route.params.existingGenerated;
-  //   if (existing) {
-  //     cache.current = { ...existing };
-  //     if (existing[selected.id]) {
-  //       setGenerated(existing[selected.id]);
-  //     }
-  //   }
-  // }, []);
+  const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
 
   const byGender = HAIR_STYLES_3D.filter((s) => s.gender === genderFilter);
   const recommended = byGender.filter((s) =>
@@ -109,8 +73,9 @@ export default function VirtualTryOnScreen({
 
   function switchGender(g: "female" | "male") {
     setGenderFilter(g);
-    const next = HAIR_STYLES_3D.filter((s) => s.gender === g);
-    if (next.length > 0) selectStyle(next[0]);
+    setSelected(null);
+    setGenerated({});
+    setError(null);
   }
 
   async function selectStyle(style: HairStyle3D) {
@@ -132,17 +97,14 @@ export default function VirtualTryOnScreen({
         uriToBase64(photos.right),
       ]);
 
-      const res = await fetch(
-        `${API_BASE_URL}/api/hair-generate/generate-all`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            photos: { front: frontB64, left: leftB64, right: rightB64 },
-            styleId: style.id,
-          }),
-        },
-      );
+      const res = await fetch(`${API_BASE_URL}/api/hair-generate/generate-all`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          photos: { front: frontB64, left: leftB64, right: rightB64 },
+          styleId: style.id,
+        }),
+      });
 
       if (!res.ok) {
         const err = await res.json();
@@ -158,15 +120,6 @@ export default function VirtualTryOnScreen({
 
       cache.current[style.id] = result;
       setGenerated(result);
-
-      // PHOTO STORAGE DISABLED
-      // if (userSub && idToken) {
-      //   fetch(`${API_BASE_URL}/api/face-photos/${userSub}/generated`, {
-      //     method: "PATCH",
-      //     headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-      //     body: JSON.stringify({ styleId: style.id, views: result }),
-      //   }).catch(console.error);
-      // }
     } catch (e: any) {
       console.error("❌ selectStyle error:", e?.message ?? e);
       setError("Generation failed. Check your connection and try again.");
@@ -198,14 +151,10 @@ export default function VirtualTryOnScreen({
 
     setDownloading(true);
     try {
-      // Ask for permission if not granted
       if (!mediaPermission?.granted) {
         const { granted } = await requestMediaPermission();
         if (!granted) {
-          Alert.alert(
-            "Permission needed",
-            "Allow access to save photos to your gallery.",
-          );
+          Alert.alert("Permission needed", "Allow access to save photos to your gallery.");
           return;
         }
       }
@@ -213,23 +162,17 @@ export default function VirtualTryOnScreen({
       let localUri: string;
 
       if (uriToSave.startsWith("data:")) {
-        // base64 → write to a temp file first
         const base64Data = uriToSave.split(",")[1];
-        const isGenerated = !!generated[activeView];
-        const filename = `trimly_${selected.id}_${activeView}_${Date.now()}.png`;
+        const filename = `trimly_${selected?.id ?? "photo"}_${activeView}_${Date.now()}.png`;
         const tempPath = `${FileSystem.cacheDirectory}${filename}`;
         await FileSystem.writeAsStringAsync(tempPath, base64Data, {
           encoding: FileSystem.EncodingType.Base64,
         });
         localUri = tempPath;
       } else {
-        // Remote URL → download first
         const filename = `trimly_${activeView}_${Date.now()}.jpg`;
         const tempPath = `${FileSystem.cacheDirectory}${filename}`;
-        const downloadResult = await FileSystem.downloadAsync(
-          uriToSave,
-          tempPath,
-        );
+        const downloadResult = await FileSystem.downloadAsync(uriToSave, tempPath);
         localUri = downloadResult.uri;
       }
 
@@ -253,6 +196,18 @@ export default function VirtualTryOnScreen({
     { key: "right", label: "Right" },
   ];
 
+  // Badge state
+  const badgeIcon: keyof typeof Ionicons.glyphMap = generating
+    ? "hourglass-outline"
+    : activeGenerated
+      ? "sparkles-outline"
+      : "camera-outline";
+  const badgeLabel = generating
+    ? "Generating…"
+    : activeGenerated
+      ? "AI Generated"
+      : "Original";
+
   return (
     <LinearGradient
       colors={[colors.gradientLeft, colors.gradientRight]}
@@ -263,16 +218,14 @@ export default function VirtualTryOnScreen({
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.page}>
-            <Pressable
-              onPress={() => navigation.goBack()}
-              style={styles.backBtn}
-            >
+            <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
               <Text style={styles.backText}>← Back</Text>
             </Pressable>
 
             <Text style={styles.heading}>Virtual Try-On</Text>
             <Text style={styles.sub}>
-              Your face shape: <Text style={styles.accent}>{faceShape}</Text>
+              Your face shape:{" "}
+              <Text style={styles.accent}>{faceShape}</Text>
             </Text>
 
             {/* ── Gender toggle ── */}
@@ -280,19 +233,22 @@ export default function VirtualTryOnScreen({
               {(["female", "male"] as const).map((g) => (
                 <Pressable
                   key={g}
-                  style={[
-                    styles.genderBtn,
-                    genderFilter === g && styles.genderBtnActive,
-                  ]}
+                  style={[styles.genderBtn, genderFilter === g && styles.genderBtnActive]}
                   onPress={() => switchGender(g)}
                 >
+                  <Ionicons
+                    name={g === "female" ? "person-outline" : "man-outline"}
+                    size={15}
+                    color={genderFilter === g ? colors.white : colors.textSoft}
+                    style={{ marginRight: 6 }}
+                  />
                   <Text
                     style={[
                       styles.genderBtnText,
                       genderFilter === g && styles.genderBtnTextActive,
                     ]}
                   >
-                    {g === "female" ? "♀  Female" : "♂  Male"}
+                    {g === "female" ? "Female" : "Male"}
                   </Text>
                 </Pressable>
               ))}
@@ -303,10 +259,7 @@ export default function VirtualTryOnScreen({
               {VIEW_TABS.map((tab) => (
                 <Pressable
                   key={tab.key}
-                  style={[
-                    styles.viewTab,
-                    activeView === tab.key && styles.viewTabActive,
-                  ]}
+                  style={[styles.viewTab, activeView === tab.key && styles.viewTabActive]}
                   onPress={() => setActiveView(tab.key)}
                 >
                   <Text
@@ -322,12 +275,7 @@ export default function VirtualTryOnScreen({
             </View>
 
             {/* ── Photo preview ── */}
-            <View
-              style={[
-                styles.photoWrap,
-                { width: PREVIEW_W, height: PREVIEW_H },
-              ]}
-            >
+            <View style={[styles.photoWrap, { width: PREVIEW_W, height: PREVIEW_H }]}>
               <Image
                 source={{ uri: activeOriginal }}
                 style={StyleSheet.absoluteFill}
@@ -345,42 +293,43 @@ export default function VirtualTryOnScreen({
               {generating && (
                 <View style={styles.generatingOverlay}>
                   <ActivityIndicator size="small" color={colors.primaryLight} />
-                  <Text style={styles.generatingText}>
-                    Generating {activeView} view…
-                  </Text>
-                  <Text style={styles.generatingHint}>
-                    Processing 3 views one by one — takes ~30s
-                  </Text>
+                  <Text style={styles.generatingText}>Generating {activeView} view…</Text>
+                  <Text style={styles.generatingHint}>Processing 3 views — takes ~30s</Text>
                 </View>
               )}
 
               {error && !generating && (
                 <View style={styles.generatingOverlay}>
+                  <Ionicons name="warning-outline" size={28} color="#ff6b6b" />
                   <Text style={styles.errorText}>{error}</Text>
-                  <Pressable
-                    style={styles.retryBtn}
-                    onPress={() => selectStyle(selected)}
-                  >
+                  <Pressable style={styles.retryBtn} onPress={() => selected && selectStyle(selected)}>
                     <Text style={styles.retryBtnText}>Retry</Text>
                   </Pressable>
                 </View>
               )}
 
+              {/* Status badge — top left */}
               <View style={styles.previewBadge}>
-                <Text style={styles.previewBadgeText}>
-                  {generating
-                    ? "⏳ Generating…"
-                    : activeGenerated
-                      ? "✨ AI Generated"
-                      : "📷 Original"}
-                </Text>
+                <Ionicons name={badgeIcon} size={12} color="#fff" style={{ marginRight: 5 }} />
+                <Text style={styles.previewBadgeText}>{badgeLabel}</Text>
               </View>
 
-              <View style={styles.styleNameBadge}>
-                <Text style={styles.styleNameText}>{selected.name}</Text>
-              </View>
+              {/* Style name badge — bottom centre, only when a style is selected */}
+              {selected && (
+                <View style={styles.styleNameBadge}>
+                  <Text style={styles.styleNameText}>{selected.name}</Text>
+                </View>
+              )}
 
-              {/* ── Download button on the photo ── */}
+              {/* No style selected hint — bottom centre */}
+              {!selected && !generating && (
+                <View style={styles.hintBadge}>
+                  <Ionicons name="hand-left-outline" size={12} color="rgba(255,255,255,0.7)" style={{ marginRight: 5 }} />
+                  <Text style={styles.hintBadgeText}>Tap a style below to try it on</Text>
+                </View>
+              )}
+
+              {/* Download button — top right */}
               {canDownload && (
                 <Pressable
                   style={styles.downloadBtn}
@@ -390,35 +339,31 @@ export default function VirtualTryOnScreen({
                   {downloading ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Ionicons name="download-outline" size={20} color="#fff" />
+                    <Ionicons name="download-outline" size={18} color="#fff" />
                   )}
                 </Pressable>
               )}
             </View>
 
-            {/* ── 3-view strip (thumbnails) ── */}
-            {!generating &&
-              (generated.front || generated.left || generated.right) && (
-                <View style={styles.thumbRow}>
-                  {VIEW_TABS.map((tab) => (
-                    <Pressable
-                      key={tab.key}
-                      style={[
-                        styles.thumb,
-                        activeView === tab.key && styles.thumbActive,
-                      ]}
-                      onPress={() => setActiveView(tab.key)}
-                    >
-                      <Image
-                        source={{ uri: generated[tab.key] ?? photos[tab.key] }}
-                        style={styles.thumbImage}
-                        resizeMode="cover"
-                      />
-                      <Text style={styles.thumbLabel}>{tab.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
+            {/* ── Thumbnail strip (only when generated) ── */}
+            {!generating && (generated.front || generated.left || generated.right) && (
+              <View style={styles.thumbRow}>
+                {VIEW_TABS.map((tab) => (
+                  <Pressable
+                    key={tab.key}
+                    style={[styles.thumb, activeView === tab.key && styles.thumbActive]}
+                    onPress={() => setActiveView(tab.key)}
+                  >
+                    <Image
+                      source={{ uri: generated[tab.key] ?? photos[tab.key] }}
+                      style={styles.thumbImage}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.thumbLabel}>{tab.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
 
             {/* ── Style picker ── */}
             <View style={styles.sectionRow}>
@@ -440,59 +385,74 @@ export default function VirtualTryOnScreen({
                   key={style.id}
                   style={[
                     styles.styleChip,
-                    selected.id === style.id && styles.styleChipSelected,
+                    selected?.id === style.id && styles.styleChipSelected,
                   ]}
                   onPress={() => selectStyle(style)}
                 >
                   <Text
                     style={[
                       styles.styleChipText,
-                      selected.id === style.id && styles.styleChipTextSelected,
+                      selected?.id === style.id && styles.styleChipTextSelected,
                     ]}
                   >
                     {style.name}
                   </Text>
-                  <Text style={styles.styleLength}>{style.category}</Text>
+                  <Text
+                    style={[
+                      styles.styleLength,
+                      selected?.id === style.id && styles.styleLengthSelected,
+                    ]}
+                  >
+                    {style.category}
+                  </Text>
                 </Pressable>
               ))}
             </ScrollView>
 
-            {/* ── Description ── */}
-            <View style={styles.descCard}>
-              <Text style={styles.descTitle}>{selected.name}</Text>
-              <Text style={styles.descText}>{selected.description}</Text>
-            </View>
+            {/* ── Description card (only when selected) ── */}
+            {selected && (
+              <View style={styles.descCard}>
+                <View style={styles.descHeader}>
+                  <Ionicons name="sparkles-outline" size={15} color={colors.primary} style={{ marginRight: 7 }} />
+                  <Text style={styles.descTitle}>{selected.name}</Text>
+                </View>
+                <Text style={styles.descText}>{selected.description}</Text>
+              </View>
+            )}
 
             {/* ── CTAs ── */}
-            <Pressable
-              style={styles.secondaryBtn}
-              onPress={() => navigation.navigate("FaceScan")}
-            >
-              <Text style={styles.secondaryBtnText}>🔄 Scan Again</Text>
-            </Pressable>
+            <View style={styles.ctaStack}>
+              <Pressable
+                style={styles.primaryBtn}
+                onPress={() =>
+                  navigation.navigate("Mirror", {
+                    detectedFaceShape: faceShape,
+                    landmarks,
+                  })
+                }
+              >
+                <Text style={styles.primaryBtnText}>Continue to full profile</Text>
+                <Ionicons name="arrow-forward" size={16} color={colors.white} style={{ marginLeft: 6 }} />
+              </Pressable>
 
-            <Pressable
-              style={[styles.primaryBtn, { marginTop: 10 }]}
-              onPress={() =>
-                navigation.navigate("Mirror", {
-                  detectedFaceShape: faceShape,
-                  landmarks,
-                })
-              }
-            >
-              <Text style={styles.primaryBtnText}>
-                Continue to full profile →
-              </Text>
-            </Pressable>
+              <View style={styles.secondaryRow}>
+                <Pressable
+                  style={[styles.secondaryBtn, { flex: 1 }]}
+                  onPress={() => navigation.navigate("FaceScan")}
+                >
+                  <Ionicons name="refresh-outline" size={15} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={styles.secondaryBtnText}>Scan again</Text>
+                </Pressable>
 
-            <Pressable
-              style={[styles.secondaryBtn, { marginTop: 10 }]}
-              onPress={() => navigation.navigate("StyleRecommendation")}
-            >
-              <Text style={styles.secondaryBtnText}>
-                Get salon recommendations →
-              </Text>
-            </Pressable>
+                <Pressable
+                  style={[styles.secondaryBtn, { flex: 1 }]}
+                  onPress={() => navigation.navigate("StyleRecommendation")}
+                >
+                  <Text style={styles.secondaryBtnText}>Recommendations</Text>
+                  <Ionicons name="arrow-forward" size={15} color={colors.primary} style={{ marginLeft: 6 }} />
+                </Pressable>
+              </View>
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -503,48 +463,42 @@ export default function VirtualTryOnScreen({
 const THUMB_SIZE = (Dimensions.get("window").width - 96) / 3;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40 },
+  safe: { flex: 1, marginBottom: 16 },
+  content: { padding: 10, paddingBottom: 40 },
   page: {
     backgroundColor: colors.page,
     borderRadius: 24,
-    padding: 18,
+    padding: 15,
     minHeight: "100%",
   },
   backBtn: { marginBottom: 16 },
   backText: { color: colors.primary, fontWeight: "700", fontSize: 15 },
-  heading: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: colors.text,
-    marginBottom: 4,
-  },
+  heading: { fontSize: 26, fontWeight: "800", color: colors.text, marginBottom: 4 },
   sub: { fontSize: 14, color: colors.textSoft, marginBottom: 16 },
-  accent: {
-    color: colors.primary,
-    fontWeight: "700",
-    textTransform: "capitalize",
-  },
+  accent: { color: colors.primary, fontWeight: "700", textTransform: "capitalize" },
+
+  // Gender toggle
   genderRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   genderBtn: {
     flex: 1,
-    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 5,
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: colors.border,
     backgroundColor: colors.card,
-    alignItems: "center",
   },
-  genderBtnActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
+  genderBtnActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   genderBtnText: { fontSize: 14, fontWeight: "700", color: colors.textSoft },
   genderBtnTextActive: { color: colors.white },
+
+  // View tabs
   viewTabRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
   viewTab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -557,6 +511,8 @@ const styles = StyleSheet.create({
   },
   viewTabText: { fontSize: 13, fontWeight: "600", color: colors.textSoft },
   viewTabTextActive: { color: colors.primary, fontWeight: "700" },
+
+  // Photo preview
   photoWrap: {
     alignSelf: "center",
     borderRadius: 20,
@@ -564,6 +520,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: colors.card,
     position: "relative",
+    borderWidth: 1,
+    borderColor: "rgba(171,213,255,0.12)",
   },
   generatingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -573,52 +531,79 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   generatingText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  generatingHint: { color: "rgba(255,255,255,0.65)", fontSize: 12 },
+  generatingHint: { color: "rgba(255,255,255,0.6)", fontSize: 12 },
   errorText: {
     color: "#ff6b6b",
-    fontSize: 14,
+    fontSize: 13,
     textAlign: "center",
     paddingHorizontal: 24,
+    marginTop: 8,
   },
   retryBtn: {
-    marginTop: 8,
-    paddingHorizontal: 24,
+    marginTop: 4,
+    paddingHorizontal: 28,
     paddingVertical: 10,
     borderRadius: 16,
     backgroundColor: colors.primary,
   },
-  retryBtnText: { color: colors.white, fontWeight: "700" },
+  retryBtnText: { color: colors.white, fontWeight: "700", fontSize: 14 },
+
+  // Status badge — top left
   previewBadge: {
     position: "absolute",
     top: 12,
     left: 12,
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: "rgba(171,213,255,0.15)",
   },
   previewBadgeText: { color: "#fff", fontSize: 11, fontWeight: "600" },
+
+  // Style name badge — bottom centre
   styleNameBadge: {
     position: "absolute",
     bottom: 12,
     alignSelf: "center",
     backgroundColor: "rgba(0,0,0,0.6)",
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
   },
   styleNameText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+
+  hintBadge: {
+    position: "absolute",
+    bottom: 12,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  hintBadgeText: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "600" },
+
+  // Download button — top right
   downloadBtn: {
     position: "absolute",
     top: 12,
     right: 12,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    minWidth: 64,
-    alignItems: "center",
+    padding: 9,
+    borderWidth: 1,
+    borderColor: "rgba(171,213,255,0.15)",
   },
+
+  // Thumbnails
   thumbRow: {
     flexDirection: "row",
     gap: 8,
@@ -641,6 +626,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     backgroundColor: colors.card,
   },
+
+  // Section header
   sectionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -648,18 +635,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionLabel: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "700",
-    color: "#888",
+    color: colors.textSoft,
     textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 10,
+    letterSpacing: 1,
   },
   toggleText: { fontSize: 12, color: colors.primary, fontWeight: "700" },
-  styleScroll: { gap: 10, paddingBottom: 4, marginBottom: 20 },
+
+  // Style chips
+  styleScroll: { gap: 10, paddingBottom: 4, marginBottom: 15 },
   styleChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 5,
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -667,45 +655,46 @@ const styles = StyleSheet.create({
     minWidth: 100,
     alignItems: "center",
   },
-  styleChipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-  styleChipText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textSoft,
-    textAlign: "center",
-  },
+  styleChipSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
+  styleChipText: { fontSize: 13, fontWeight: "700", color: colors.textSoft, textAlign: "center" },
   styleChipTextSelected: { color: colors.white },
-  styleLength: { fontSize: 10, color: colors.textSoft, marginTop: 2 },
+  styleLength: { fontSize: 10, color: colors.textSoft, marginTop: 3 },
+  styleLengthSelected: { color: "rgba(255,255,255,0.7)" },
+
+  // Description card
   descCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
     padding: 14,
-    marginBottom: 20,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "rgba(171,213,255,0.1)",
   },
-  descTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: 4,
-  },
+  descHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
+  descTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
   descText: { fontSize: 13, color: colors.textSoft, lineHeight: 20 },
+
+  // CTAs
+  ctaStack: { gap: 10 },
   primaryBtn: {
     backgroundColor: colors.primary,
     borderRadius: 20,
-    paddingVertical: 14,
+    paddingVertical: 10,
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    justifyContent: "center",
   },
-  primaryBtnText: { color: colors.white, fontSize: 15, fontWeight: "700" },
+  primaryBtnText: { color: colors.white, fontSize: 13, fontWeight: "700" },
+  secondaryRow: { flexDirection: "row", gap: 10 },
   secondaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1.5,
     borderColor: colors.primary,
     borderRadius: 20,
-    paddingVertical: 13,
-    alignItems: "center",
+    paddingVertical: 3,
+    paddingHorizontal: 12,
   },
-  secondaryBtnText: { color: colors.primary, fontSize: 15, fontWeight: "700" },
+  secondaryBtnText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
 });

@@ -1,33 +1,15 @@
+//D:\trimly\apps\web\src\app\(protected)\stylist\schedule\page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getAccessToken } from "@auth0/nextjs-auth0/client";
 import { Clock3, Scissors, User } from "lucide-react";
-
-type DayOfWeek =
-  | "monday"
-  | "tuesday"
-  | "wednesday"
-  | "thursday"
-  | "friday"
-  | "saturday"
-  | "sunday";
-
-type Shift = {
-  dayOfWeek: DayOfWeek;
-  startTime: string;
-  endTime: string;
-  isOff: boolean;
-};
-
-type TodaySlot = {
-  serviceName: string;
-  startTime: string;
-  endTime: string;
-  customerName: string | null;
-  customerPhone: string | null;
-  appointmentStatus: string;
-};
+import StylistMonthCalendar, {
+  CalendarSlot,
+  ShiftLite,
+  DayOfWeek,
+  toDateKey,
+} from "@/components/stylist/StylistMonthCalendar";
 
 const DAY_ORDER: DayOfWeek[] = [
   "monday",
@@ -49,44 +31,120 @@ const DAY_LABELS: Record<DayOfWeek, string> = {
   sunday: "Sun",
 };
 
-export default function StylistSchedulePage() {
-  const [shifts, setShifts] = useState<Shift[]>([]);
-  const [todaySchedule, setTodaySchedule] = useState<TodaySlot[]>([]);
-  const [loading, setLoading] = useState(true);
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
 
+function parseDateKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+export default function StylistSchedulePage() {
+  const [shifts, setShifts] = useState<ShiftLite[]>([]);
+  const [shiftsLoading, setShiftsLoading] = useState(true);
+
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-indexed
+
+  const [appointmentsByDate, setAppointmentsByDate] = useState<
+    Record<string, CalendarSlot[]>
+  >({});
+  const [calendarLoading, setCalendarLoading] = useState(true);
+
+  const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+  const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+
+  // Load weekly recurring shifts once
   useEffect(() => {
-    async function load() {
+    async function loadShifts() {
       try {
         const token = await getAccessToken();
         const base = process.env.NEXT_PUBLIC_API_BASE_URL!;
         const res = await fetch(`${base}/api/stylist-dashboard/schedule?idToken=${token}`);
         const data = await res.json();
         setShifts(data.weeklyShifts ?? []);
-        setTodaySchedule(data.todaySchedule ?? []);
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        setShiftsLoading(false);
       }
     }
-    load();
+    loadShifts();
   }, []);
 
-  const todayDow = new Date()
+  // Load the month's appointments whenever the viewed month changes
+  useEffect(() => {
+    async function loadCalendar() {
+      try {
+        setCalendarLoading(true);
+        const token = await getAccessToken();
+        const base = process.env.NEXT_PUBLIC_API_BASE_URL!;
+        const monthStr = `${viewYear}-${pad(viewMonth + 1)}`;
+        const res = await fetch(
+          `${base}/api/stylist-dashboard/calendar?month=${monthStr}&idToken=${token}`
+        );
+        const data = await res.json();
+        setAppointmentsByDate(data.appointmentsByDate ?? {});
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setCalendarLoading(false);
+      }
+    }
+    loadCalendar();
+  }, [viewYear, viewMonth]);
+
+  const shiftMap = useMemo(() => {
+    const map = new Map<DayOfWeek, ShiftLite>();
+    for (const s of shifts) map.set(s.dayOfWeek, s);
+    return map;
+  }, [shifts]);
+
+  const todayDow = today
     .toLocaleDateString("en-US", { weekday: "long" })
     .toLowerCase() as DayOfWeek;
 
-  // Build a lookup map for easy access
-  const shiftMap = new Map<DayOfWeek, Shift>();
-  for (const s of shifts) shiftMap.set(s.dayOfWeek, s);
+  function goPrevMonth() {
+    if (viewMonth === 0) {
+      setViewYear((y) => y - 1);
+      setViewMonth(11);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  }
 
-  if (loading) return <div className="text-gray-400 text-sm">Loading schedule...</div>;
+  function goNextMonth() {
+    if (viewMonth === 11) {
+      setViewYear((y) => y + 1);
+      setViewMonth(0);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  }
+
+  function goToday() {
+    setViewYear(today.getFullYear());
+    setViewMonth(today.getMonth());
+    setSelectedDateKey(todayKey);
+  }
+
+  const selectedSlots = appointmentsByDate[selectedDateKey] ?? [];
+  const selectedDateLabel = parseDateKey(selectedDateKey).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  const isSelectedToday = selectedDateKey === todayKey;
+
+  if (shiftsLoading) return <div className="text-gray-400 text-sm">Loading schedule...</div>;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">My Schedule</h1>
-        <p className="text-sm text-gray-400">Weekly shifts and today&apos;s bookings</p>
+        <p className="text-sm text-gray-400">Weekly shifts and your monthly bookings</p>
       </div>
 
       {/* Weekly shift grid */}
@@ -142,59 +200,69 @@ export default function StylistSchedulePage() {
         </div>
       </div>
 
-      {/* Today's bookings */}
+      {/* Monthly calendar */}
       <div>
-        <h2 className="mb-3 text-lg font-semibold">
-          Today&apos;s Bookings
-          <span className="ml-2 text-sm font-normal text-gray-400">
-            ({todaySchedule.length} appointment{todaySchedule.length !== 1 ? "s" : ""})
-          </span>
-        </h2>
+        <h2 className="mb-3 text-lg font-semibold">Monthly Bookings</h2>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <StylistMonthCalendar
+            year={viewYear}
+            month={viewMonth}
+            appointmentsByDate={appointmentsByDate}
+            shiftMap={shiftMap}
+            selectedDateKey={selectedDateKey}
+            onSelectDate={setSelectedDateKey}
+            onPrevMonth={goPrevMonth}
+            onNextMonth={goNextMonth}
+            onToday={goToday}
+          />
 
-        {todaySchedule.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-[#111827] p-6 text-sm text-gray-400">
-            No bookings for today.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {todaySchedule.map((slot, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-4 rounded-xl border border-white/10 bg-[#111827] p-4"
-              >
-                {/* Timeline dot */}
-                <div className="flex flex-col items-center self-stretch">
-                  <div className="mt-1 h-3 w-3 rounded-full border-2 border-[#ABD5FF] bg-[#0b1220]" />
-                  {i < todaySchedule.length - 1 && (
-                    <div className="mt-1 flex-1 w-px bg-white/10" />
-                  )}
-                </div>
+          {/* Selected day's bookings */}
+          <div className="rounded-xl border border-white/10 bg-[#111827] p-5">
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold">
+                {isSelectedToday ? "Today" : selectedDateLabel}
+              </h3>
+              <p className="text-xs text-gray-500">
+                {selectedSlots.length} appointment{selectedSlots.length !== 1 ? "s" : ""}
+              </p>
+            </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Scissors size={14} className="text-gray-400 shrink-0" />
-                    <span className="font-medium text-sm">{slot.serviceName}</span>
-                    <StatusPill status={slot.appointmentStatus} />
+            {calendarLoading ? (
+              <div className="text-sm text-gray-400">Loading...</div>
+            ) : selectedSlots.length === 0 ? (
+              <div className="text-sm text-gray-400">No bookings for this day.</div>
+            ) : (
+              <div className="space-y-3">
+                {selectedSlots.map((slot, i) => (
+                  <div
+                    key={slot.id ?? i}
+                    className="flex items-start gap-3 rounded-lg border border-white/10 bg-[#0f172a] p-3"
+                  >
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#ABD5FF]/30 bg-gradient-to-br from-[#274b72] to-[#13213a] text-[#ABD5FF]">
+                      <Scissors size={12} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-sm font-medium">{slot.serviceName}</span>
+                        <StatusPill status={slot.appointmentStatus} />
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
+                        <User size={12} />
+                        {slot.customerName ?? "Unknown"}
+                        {slot.customerPhone && (
+                          <span className="text-gray-500">· {slot.customerPhone}</span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        {slot.startTime} – {slot.endTime}
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-sm text-gray-400">
-                    <User size={13} />
-                    {slot.customerName ?? "Unknown"}
-                    {slot.customerPhone && (
-                      <span className="text-gray-500">· {slot.customerPhone}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="shrink-0 text-right">
-                  <div className="text-sm font-medium text-white">
-                    {slot.startTime}
-                  </div>
-                  <div className="text-xs text-gray-500">– {slot.endTime}</div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,10 @@
+//D:\trimly\apps\web\src\app\(protected)\stylist\profile\page.tsx
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@auth0/nextjs-auth0/client";
-import { Pencil, Save, X, Scissors, MapPin, Phone, Mail } from "lucide-react";
+import { Pencil, Save, X, Scissors, MapPin, Phone, Mail, Camera } from "lucide-react";
+import Image from "next/image";
 
 type StylistProfile = {
   id: string;
@@ -21,6 +23,7 @@ type StylistProfile = {
     email: string | null;
     phone: string | null;
     address: string | null;
+    photo: string | null;
   };
   services: {
     id: string;
@@ -48,7 +51,13 @@ export default function StylistProfilePage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [bio, setBio] = useState("");
-  const [yearsOfExperience, setYearsOfExperience] = useState<number | "">(""); 
+  const [yearsOfExperience, setYearsOfExperience] = useState<number | "">("");
+
+  // Photo state
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function prefill(p: StylistProfile) {
     setName(p.user.name ?? "");
@@ -56,6 +65,9 @@ export default function StylistProfilePage() {
     setAddress(p.user.address ?? "");
     setBio(p.bio ?? "");
     setYearsOfExperience(p.yearsOfExperience ?? "");
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setRemovePhoto(false);
   }
 
   const load = useCallback(async () => {
@@ -78,23 +90,53 @@ export default function StylistProfilePage() {
     void load();
   }, [load]);
 
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please select an image file");
+      return;
+    }
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setRemovePhoto(false);
+    e.target.value = "";
+  }
+
+  function handleRemovePhoto() {
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+      setPhotoFile(null);
+      setPhotoPreview(null);
+    } else if (profile?.user.photo) {
+      setRemovePhoto(true);
+    }
+  }
+
   async function handleSave() {
     try {
       setSaving(true);
       setError(null);
       const token = await getAccessToken();
       const base = process.env.NEXT_PUBLIC_API_BASE_URL!;
+
+      const formData = new FormData();
+      formData.append("idToken", token ?? "");
+      formData.append("name", name);
+      formData.append("phone", phone);
+      formData.append("address", address);
+      formData.append("bio", bio);
+      formData.append(
+        "yearsOfExperience",
+        yearsOfExperience === "" ? "" : String(yearsOfExperience)
+      );
+      formData.append("removePhoto", removePhoto ? "true" : "false");
+      if (photoFile) formData.append("photo", photoFile);
+
       const res = await fetch(`${base}/api/stylist-dashboard/me`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          idToken: token,
-          name,
-          phone,
-          address,
-          bio,
-          yearsOfExperience: yearsOfExperience === "" ? null : Number(yearsOfExperience),
-        }),
+        body: formData,
       });
       const data = await res.json() as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Failed to save");
@@ -115,6 +157,9 @@ export default function StylistProfilePage() {
 
   if (loading) return <div className="text-gray-400 text-sm">Loading profile...</div>;
   if (!profile) return <div className="text-red-400 text-sm">Failed to load profile.</div>;
+
+  const avatarSrc = photoPreview ?? (removePhoto ? null : profile.user.photo);
+  const initial = (name || profile.user.name || "?").charAt(0).toUpperCase();
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -158,9 +203,52 @@ export default function StylistProfilePage() {
       {/* Identity card */}
       <div className="rounded-xl border border-white/10 bg-[#111827] p-6">
         <div className="flex items-center gap-4 mb-6">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-[#ABD5FF]/40 bg-gradient-to-br from-[#274b72] to-[#13213a] text-xl font-semibold text-[#ABD5FF] shadow-[0_0_20px_rgba(171,213,255,0.3)]">
-            {(name || profile.user.name || "?").charAt(0).toUpperCase()}
+          <div className="relative h-14 w-14 shrink-0">
+            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-[#ABD5FF]/40 bg-gradient-to-br from-[#274b72] to-[#13213a] text-xl font-semibold text-[#ABD5FF] shadow-[0_0_20px_rgba(171,213,255,0.3)]">
+              {avatarSrc ? (
+                <Image
+                  src={avatarSrc}
+                  alt={name || profile.user.name || "Profile photo"}
+                  fill
+                  className="rounded-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <span>{initial}</span>
+              )}
+            </div>
+
+            {editing && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-gray-700 text-white shadow transition hover:bg-gray-600"
+                  aria-label="Change photo"
+                >
+                  <Camera size={12} />
+                </button>
+                {avatarSrc && (
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-red-900/80"
+                    aria-label="Remove photo"
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoChange}
+                />
+              </>
+            )}
           </div>
+
           <div>
             <div className="text-lg font-semibold">{name || profile.user.name}</div>
             <div className="text-sm text-gray-400">{profile.salon.name}</div>

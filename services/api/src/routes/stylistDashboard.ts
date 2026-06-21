@@ -2,6 +2,38 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { verifyIdToken } from "../lib/auth";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const stylistPhotosDir = path.join(__dirname, "../../uploads/stylists");
+if (!fs.existsSync(stylistPhotosDir)) {
+  fs.mkdirSync(stylistPhotosDir, { recursive: true });
+}
+
+const stylistPhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, stylistPhotosDir),
+  filename: (_req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${unique}${path.extname(file.originalname)}`);
+  },
+});
+
+const uploadStylistPhoto = multer({
+  storage: stylistPhotoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files are allowed"));
+  },
+});
+
+function removeStylistPhotoFile(photoUrl: string | null) {
+  if (!photoUrl) return;
+  const filename = photoUrl.split("/uploads/stylists/")[1];
+  if (!filename) return;
+  fs.unlink(path.join(stylistPhotosDir, filename), () => {});
+}
 
 const router = Router();
 
@@ -67,6 +99,7 @@ router.get("/me", async (req, res) => {
         email: user.email,
         phone: user.phone,
         address: user.address,
+        photo: user.photo,
       },
       services: full.services.map((s) => ({
         id: s.service.id,
@@ -88,9 +121,9 @@ router.get("/me", async (req, res) => {
 });
 
 // PUT /api/stylist-dashboard/me
-router.put("/me", async (req, res) => {
+router.put("/me", uploadStylistPhoto.single("photo"), async (req, res) => {
   try {
-    const { idToken, name, phone, address, bio, yearsOfExperience } = req.body;
+    const { idToken, name, phone, address, bio, yearsOfExperience, removePhoto } = req.body;
     if (!idToken) return res.status(401).json({ error: "Missing token" });
 
     const resolved = await getStylistFromToken(idToken);
@@ -98,14 +131,33 @@ router.put("/me", async (req, res) => {
 
     const { user, stylist } = resolved;
 
+    const apiBase = process.env.API_BASE_URL || "http://localhost:4000";
+    const file = req.file as Express.Multer.File | undefined;
+
+    let photoUpdate: { photo?: string | null } = {};
+
+    if (file) {
+      // New photo replaces any existing one
+      removeStylistPhotoFile(user.photo);
+      photoUpdate.photo = `${apiBase}/uploads/stylists/${file.filename}`;
+    } else if (removePhoto === "true") {
+      removeStylistPhotoFile(user.photo);
+      photoUpdate.photo = null;
+    }
+
+    const yoe =
+      yearsOfExperience === "" || yearsOfExperience === undefined
+        ? null
+        : Number(yearsOfExperience);
+
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
-        data: { name, phone, address },
+        data: { name, phone, address, ...photoUpdate },
       }),
       prisma.stylist.update({
         where: { id: stylist.id },
-        data: { bio, yearsOfExperience },
+        data: { bio, yearsOfExperience: yoe },
       }),
     ]);
 
@@ -246,6 +298,78 @@ router.get("/schedule", async (req, res) => {
   } catch (err: any) {
     console.error(err);
     return res.status(500).json({ error: "Failed to fetch schedule" });
+  }
+});
+
+// GET /api/stylist-dashboard/calendar?month=YYYY-MM
+router.get("/calendar", async (req, res) => {
+  try {
+    const idToken = String(req.query.idToken || "");
+    if (!idToken) return res.status(401).json({ error: "Missing token" });
+
+    const resolved = await getStylistFromToken(idToken);
+    if (!resolved) return res.status(403).json({ error: "Not a stylist" });
+
+    const { stylist } = resolved;
+
+    const monthParam = String(req.query.month || "");
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = now.getMonth(); // 0-indexed
+
+    if (/^\d{4}-\d{2}$/.test(monthParam)) {
+      const [y, m] = monthParam.split("-").map(Number);
+      year = y;
+      month = m - 1;
+    }
+
+    const monthStart = new Date(year, month, 1, 0, 0, 0, 0);
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+    const apptServices = await prisma.appointmentService.findMany({
+      where: {
+        stylistId: stylist.id,
+        appointment: {
+          date: { gte: monthStart, lte: monthEnd },
+        },
+      },
+      include: {
+        service: true,
+        appointment: {
+          include: {
+            customer: { include: { user: true } },
+          },
+        },
+      },
+      orderBy: { startTime: "asc" },
+    });
+
+    const appointmentsByDate: Record<string, any[]> = {};
+
+    for (const as of apptServices) {
+      // Normalize Prisma DateTime to a plain YYYY-MM-DD key
+      const dateKey = as.appointment.date.toISOString().slice(0, 10);
+
+      if (!appointmentsByDate[dateKey]) appointmentsByDate[dateKey] = [];
+
+      appointmentsByDate[dateKey].push({
+        id: as.id,
+        serviceName: as.service.name,
+        startTime: as.startTime,
+        endTime: as.endTime,
+        customerName: as.appointment.customer.user.name,
+        customerPhone: as.appointment.customer.user.phone,
+        appointmentStatus: as.appointment.status,
+      });
+    }
+
+    return res.json({
+      month: `${year}-${String(month + 1).padStart(2, "0")}`,
+      appointmentsByDate,
+    });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to fetch calendar" });
   }
 });
 

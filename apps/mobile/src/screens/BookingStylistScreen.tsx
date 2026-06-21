@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -176,11 +177,18 @@ export default function BookingStylistScreen({ route, navigation }: Props) {
 
                               {/* avatar */}
                               <View style={styles.avatar}>
-                                <Ionicons
-                                  name="person"
-                                  size={20}
-                                  color={colors.textMuted}
-                                />
+                                {stylist.photo ? (
+                                  <Image
+                                    source={{ uri: stylist.photo }}
+                                    style={styles.avatarImage}
+                                  />
+                                ) : (
+                                  <Ionicons
+                                    name="person"
+                                    size={20}
+                                    color={colors.textMuted}
+                                  />
+                                )}
                               </View>
 
                               <Text
@@ -391,6 +399,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   stylistName: {
     color: colors.text,

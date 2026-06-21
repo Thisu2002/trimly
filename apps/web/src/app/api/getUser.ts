@@ -16,6 +16,5 @@ export async function getCurrentUser() {
   });
 
   const { user } = await res.json();
-  console.log("User data from /api/auth/me:", user);
   return user;
 }

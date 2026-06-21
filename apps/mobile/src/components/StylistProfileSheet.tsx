@@ -1,7 +1,9 @@
+//D:\trimly\apps\mobile\src\components\StylistProfileSheet.tsx
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Image,
   Modal,
   PanResponder,
   Pressable,
@@ -107,7 +109,14 @@ export default function StylistProfileSheet({ stylistId, onClose }: Props) {
             {/* header */}
             <View style={styles.header}>
               <View style={styles.avatarCircle}>
-                <Ionicons name="person" size={24} color={colors.textMuted} />
+                {profile.photo ? (
+                  <Image
+                    source={{ uri: profile.photo }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Ionicons name="person" size={24} color={colors.textMuted} />
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{profile.name}</Text>
@@ -250,6 +259,12 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
   },
   name: {
     fontSize: 17,
